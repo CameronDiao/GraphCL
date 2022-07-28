@@ -1,7 +1,7 @@
 import argparse
 
 from loader import MoleculeDataset
-from torch_geometric.data import DataLoader
+from torch_geometric.loader import DataLoader
 
 import torch
 import torch.nn as nn
@@ -85,7 +85,7 @@ def main():
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--batch_size', type=int, default=32,
                         help='input batch size for training (default: 32)')
-    parser.add_argument('--epochs', type=int, default=50,
+    parser.add_argument('--epochs', type=int, default=100,
                         help='number of epochs to train (default: 100)')
     parser.add_argument('--lr', type=float, default=0.001,
                         help='learning rate (default: 0.001)')
@@ -97,15 +97,15 @@ def main():
                         help='number of GNN message passing layers (default: 5).')
     parser.add_argument('--emb_dim', type=int, default=300,
                         help='embedding dimensions (default: 300)')
-    parser.add_argument('--dropout_ratio', type=float, default=0.5,
+    parser.add_argument('--dropout_ratio', type=float, default=0.,
                         help='dropout ratio (default: 0.5)')
     parser.add_argument('--graph_pooling', type=str, default="mean",
                         help='graph level pooling (sum, mean, max, set2set, attention)')
     parser.add_argument('--JK', type=str, default="last",
                         help='how the node features across layers are combined. last, sum, max or concat')
     parser.add_argument('--gnn_type', type=str, default="gin")
-    parser.add_argument('--dataset', type=str, default = 'tox21', help='root directory of dataset. For now, only classification.')
-    parser.add_argument('--input_model_file', type=str, default = '', help='filename to read the model (if there is any)')
+    parser.add_argument('--dataset', type=str, default = 'muv', help='root directory of dataset. For now, only classification.')
+    parser.add_argument('--input_model_file', type=str, default = 'models_graphcl/graphcl_60.pth', help='filename to read the model (if there is any)')
     parser.add_argument('--filename', type=str, default = '', help='output filename')
     parser.add_argument('--seed', type=int, default=42, help = "Seed for splitting the dataset.")
     parser.add_argument('--runseed', type=int, default=0, help = "Seed for minibatch selection, random initialization.")
@@ -163,8 +163,6 @@ def main():
     else:
         raise ValueError("Invalid split option.")
 
-    print(train_dataset[0])
-
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers = args.num_workers)
     val_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers = args.num_workers)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers = args.num_workers)
@@ -190,7 +188,10 @@ def main():
     val_acc_list = []
     test_acc_list = []
 
-
+    assoc_train_acc = -1
+    best_val_acc = -1
+    assoc_test_acc = -1
+    
     for epoch in range(1, args.epochs+1):
         print("====epoch " + str(epoch))
         
@@ -207,11 +208,18 @@ def main():
 
         print("train: %f val: %f test: %f" %(train_acc, val_acc, test_acc))
 
+        if val_acc > best_val_acc:
+            assoc_train_acc = train_acc
+            best_val_acc = val_acc
+            assoc_test_acc = test_acc
+
         val_acc_list.append(val_acc)
         test_acc_list.append(test_acc)
         train_acc_list.append(train_acc)
 
         print("")
+
+    print("assoc train: %f best val: %f assoc test: %f" %(assoc_train_acc, best_val_acc, assoc_test_acc))
 
     with open('result.log', 'a+') as f:
         f.write(args.dataset + ' ' + str(args.runseed) + ' ' + str(np.array(test_acc_list)[-1]))
