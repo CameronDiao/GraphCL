@@ -365,8 +365,9 @@ class GNN_graphpred(torch.nn.Module):
             raise ValueError("unmatched number of arguments.")
 
         node_representation = self.gnn(x, edge_index, edge_attr)
+        node_representation = self.pool(node_representation, batch)
 
-        return self.graph_pred_linear(self.pool(node_representation, batch))
+        return node_representation, self.graph_pred_linear(node_representation)
 
 
 if __name__ == "__main__":

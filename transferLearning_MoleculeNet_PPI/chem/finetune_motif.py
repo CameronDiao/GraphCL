@@ -1,7 +1,7 @@
 import argparse
 
-from loader import MoleculeDataset
-from torch_geometric.data import DataLoader
+from loader import MoleculeDataset, MolCliqueDatasetWrapper
+from torch_geometric.loader import DataLoader
 
 import torch
 import torch.nn as nn
@@ -27,6 +27,9 @@ from copy import deepcopy
 
 from tensorboardX import SummaryWriter
 
+from rdkit import RDLogger      
+RDLogger.DisableLog('rdApp.*')    
+
 criterion = nn.BCEWithLogitsLoss(reduction = "none")
 
 def extract_cliques(device, batch, mol_to_clique, clique_list):
@@ -40,7 +43,7 @@ def extract_cliques(device, batch, mol_to_clique, clique_list):
     mol_idx = torch.tensor(mol_idx).to(device)
     clique_idx = torch.tensor(clique_idx).to(device)
 
-    #motif_samples = motif_embed(clique_idx).to(self.device)
+    #motif_samples = motif_embed(clique_idx).to(device)
 
     #return mol_idx, motif_samples
     return mol_idx, clique_idx
@@ -54,7 +57,7 @@ def train(args, model, device, loader, optimizer, extract_cliques, clique_list, 
 
         mol_idx, clique_idx = extract_cliques(device, batch, mol_to_clique, clique_list)
 
-        pred = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch, mol_idx, clique_idx)
+        __, pred = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch, mol_idx, clique_idx)
         y = batch.y.view(pred.shape).to(torch.float64)
 
         #Whether y is non-null or not.
@@ -76,13 +79,14 @@ def eval(args, model, device, loader, clique_list, mol_to_clique):
     y_true = []
     y_scores = []
 
-    for step, batch in enumerate(tqdm(loader, desc="Iteration")):
+    #for step, batch in enumerate(tqdm(loader, desc="Iteration")):
+    for step, batch in enumerate(loader):
         batch = batch.to(device)
 
         mol_idx, clique_idx = extract_cliques(device, batch, mol_to_clique, clique_list)
 
         with torch.no_grad():
-            pred = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch, mol_idx, clique_idx)
+            __, pred = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch, mol_idx, clique_idx)
 
         y_true.append(batch.y.view(pred.shape))
         y_scores.append(pred)
@@ -130,7 +134,7 @@ def main(**kwargs):
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--batch_size', type=int, default=32,
                         help='input batch size for training (default: 32)')
-    parser.add_argument('--epochs', type=int, default=50,
+    parser.add_argument('--epochs', type=int, default=100,
                         help='number of epochs to train (default: 100)')
     parser.add_argument('--lr', type=float, default=0.001,
                         help='learning rate (default: 0.001)')
@@ -149,8 +153,8 @@ def main(**kwargs):
     parser.add_argument('--JK', type=str, default="last",
                         help='how the node features across layers are combined. last, sum, max or concat')
     parser.add_argument('--gnn_type', type=str, default="gin")
-    parser.add_argument('--dataset', type=str, default = 'tox21', help='root directory of dataset. For now, only classification.')
-    parser.add_argument('--input_model_file', type=str, default = '', help='filename to read the model (if there is any)')
+    parser.add_argument('--dataset', type=str, default = 'bbbp', help='root directory of dataset. For now, only classification.')
+    parser.add_argument('--input_model_file', type=str, default = 'models_graphcl/graphcl_20.pth', help='filename to read the model (if there is any)')
     parser.add_argument('--filename', type=str, default = '', help='output filename')
     parser.add_argument('--seed', type=int, default=42, help = "Seed for splitting the dataset.")
     parser.add_argument('--runseed', type=int, default=0, help = "Seed for minibatch selection, random initialization.")
@@ -159,10 +163,12 @@ def main(**kwargs):
     parser.add_argument('--num_workers', type=int, default = 4, help='number of workers for dataset loading')
     args = parser.parse_args()
 
+    #torch.cuda.set_device(args.device)
 
     torch.manual_seed(args.runseed)
     np.random.seed(args.runseed)
-    device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")
+    device = torch.device("cuda:" + str(args.device))
+    #device = torch.device("cuda:" + str(kwargs['device'])) if torch.cuda.is_available() else torch.device("cpu")
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(args.runseed)
 
@@ -191,24 +197,24 @@ def main(**kwargs):
     #set up dataset
     dataset = MoleculeDataset("dataset/" + args.dataset, dataset=args.dataset)
 
-    print(dataset)
+    #print(dataset)
 
  
     if args.split == "scaffold":
         smiles_list = pd.read_csv('dataset/' + args.dataset + '/processed/smiles.csv', header=None)[0].tolist()
         train_dataset, valid_dataset, test_dataset = scaffold_split(dataset, smiles_list, null_value=0, frac_train=0.8,frac_valid=0.1, frac_test=0.1)
-        print("scaffold")
+        #print("scaffold")
     elif args.split == "random":
         train_dataset, valid_dataset, test_dataset = random_split(dataset, null_value=0, frac_train=0.8,frac_valid=0.1, frac_test=0.1, seed = args.seed)
-        print("random")
+        #print("random")
     elif args.split == "random_scaffold":
         smiles_list = pd.read_csv('dataset/' + args.dataset + '/processed/smiles.csv', header=None)[0].tolist()
         train_dataset, valid_dataset, test_dataset = random_scaffold_split(dataset, smiles_list, null_value=0, frac_train=0.8,frac_valid=0.1, frac_test=0.1, seed = args.seed)
-        print("random scaffold")
+        #print("random scaffold")
     else:
         raise ValueError("Invalid split option.")
 
-    print(train_dataset[0])
+    #print(train_dataset[0])
 
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers = args.num_workers)
     val_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers = args.num_workers)
@@ -247,7 +253,7 @@ def main(**kwargs):
                         mol_to_clique[i][cs] += 1
         return list(clique_set), mol_to_clique
 
-    def _filter_cliques(threshold, train_loader, clique_list, mol_to_clique, clique_to_mol):
+    def filter_cliques(threshold, train_loader, clique_list, mol_to_clique, clique_to_mol):
         train_mol = _get_training_molecules(train_loader)
 
         fil_clique_list = []
@@ -279,12 +285,12 @@ def main(**kwargs):
 
     clique_list, mol_to_clique = gen_cliques(smiles_list)
     clique_to_mol = _gen_clique_to_mol(clique_list, mol_to_clique)
-    emp_mol, clique_list, mol_to_clique = filter_cliques(kwargs['threshold'], num_tasks, train_loader, clique_list, mol_to_clique, clique_to_mol)
+    emp_mol, clique_list, mol_to_clique = filter_cliques(kwargs['threshold'], train_loader, clique_list, mol_to_clique, clique_to_mol)
     num_motifs = len(clique_list) + 1
     #num_motifs = len(clique_list)
-    print("Finished generating motif vocabulary")
+    #print("Finished generating motif vocabulary")
 
-    clique_dataset = MolCliqueDatasetWrapper(clique_list, args.batch_size, args.num_workers)
+    clique_dataset = MolCliqueDatasetWrapper(clique_list, num_motifs, args.num_workers)
     clique_loader = clique_dataset.get_data_loaders()
 
     #set up model
@@ -298,31 +304,31 @@ def main(**kwargs):
 
         motif_feats = []
         for c in clique_loader:
-            c = c.to(self.device)
-            __, emb = model(c)
+            c = c.to(device)
+            emb, __ = model(c)
             motif_feats.append(emb)
 
         motif_feats = torch.cat(motif_feats)
 
         clique_list.append("EMP")
 
-        label_feats = []
-        labels = []
-        for d in train_loader:
-            d = d.to(self.device)
-            feat_emb, out_emb = model(d)
-            label_feats.append(out_emb)
-            labels.append(d.y)
+        #label_feats = []
+        #labels = []
+        #for d in train_loader:
+        #    d = d.to(device)
+        #    feat_emb, out_emb = model(d)
+        #    label_feats.append(out_emb)
+        #    labels.append(d.y)
 
-        label_feats = torch.cat(label_feats)
-        labels = torch.cat(labels)
+        #label_feats = torch.cat(label_feats)
+        #labels = torch.cat(labels)
 
-        linit0 = torch.mean(label_feats[torch.nonzero(labels == 0)[:, 0]], dim=0)
-        linit1 = torch.mean(label_feats[torch.nonzero(labels == 1)[:, 0]], dim=0)
+        #linit0 = torch.mean(label_feats[torch.nonzero(labels == 0)[:, 0]], dim=0)
+        #linit1 = torch.mean(label_feats[torch.nonzero(labels == 1)[:, 0]], dim=0)
 
-        label_feats = torch.vstack((linit0, linit1)).to(self.device)
+        #label_feats = torch.vstack((linit0, linit1)).to(device)
 
-        dummy_motif = torch.zeros((1, motif_feats.shape[1])).to(self.device)
+        dummy_motif = torch.zeros((1, motif_feats.shape[1])).to(device)
         if kwargs['init'] == 'uniform':
             nn.init.xavier_uniform_(dummy_motif)
         motif_feats = torch.cat((motif_feats, dummy_motif), dim=0)

@@ -132,7 +132,7 @@ class GINConv(MessagePassing):
     See https://arxiv.org/abs/1810.00826
     """
     def __init__(self, emb_dim, aggr = "add"):
-        super(GINConv, self).__init__()
+        super(GINConv, self).__init__(aggr)
         #multi-layer perceptron
         self.mlp = torch.nn.Sequential(torch.nn.Linear(emb_dim, 2*emb_dim), torch.nn.ReLU(), torch.nn.Linear(2*emb_dim, emb_dim))
         self.edge_embedding1 = torch.nn.Embedding(num_bond_type, emb_dim)
@@ -140,7 +140,7 @@ class GINConv(MessagePassing):
 
         torch.nn.init.xavier_uniform_(self.edge_embedding1.weight.data)
         torch.nn.init.xavier_uniform_(self.edge_embedding2.weight.data)
-        self.aggr = aggr
+        #self.aggr = aggr
 
     def forward(self, x, edge_index, edge_attr):
         #add self loops in the edge space
@@ -154,7 +154,7 @@ class GINConv(MessagePassing):
 
         edge_embeddings = self.edge_embedding1(edge_attr[:,0]) + self.edge_embedding2(edge_attr[:,1])
 
-        return self.propagate(self.aggr, edge_index, x=x, edge_attr=edge_embeddings)
+        return self.propagate(edge_index[0], x=x, edge_attr=edge_embeddings)
 
     def message(self, x_j, edge_attr):
         return x_j + edge_attr
@@ -166,7 +166,7 @@ class GINConv(MessagePassing):
 class GCNConv(MessagePassing):
 
     def __init__(self, emb_dim, aggr = "add"):
-        super(GCNConv, self).__init__()
+        super(GCNConv, self).__init__(aggr)
 
         self.emb_dim = emb_dim
         self.linear = torch.nn.Linear(emb_dim, emb_dim)
@@ -176,7 +176,7 @@ class GCNConv(MessagePassing):
         torch.nn.init.xavier_uniform_(self.edge_embedding1.weight.data)
         torch.nn.init.xavier_uniform_(self.edge_embedding2.weight.data)
 
-        self.aggr = aggr
+        #self.aggr = aggr
 
     def norm(self, edge_index, num_nodes, dtype):
         ### assuming that self-loops have been already added in edge_index
@@ -206,7 +206,7 @@ class GCNConv(MessagePassing):
 
         x = self.linear(x)
 
-        return self.propagate(self.aggr, edge_index, x=x, edge_attr=edge_embeddings, norm = norm)
+        return self.propagate(edge_indexi[0], x=x, edge_attr=edge_embeddings, norm = norm)
 
     def message(self, x_j, edge_attr, norm):
         return norm.view(-1, 1) * (x_j + edge_attr)
@@ -214,9 +214,9 @@ class GCNConv(MessagePassing):
 
 class GATConv(MessagePassing):
     def __init__(self, emb_dim, heads=2, negative_slope=0.2, aggr = "add"):
-        super(GATConv, self).__init__()
+        super(GATConv, self).__init__(aggr)
 
-        self.aggr = aggr
+        #self.aggr = aggr
 
         self.emb_dim = emb_dim
         self.heads = heads
@@ -253,7 +253,7 @@ class GATConv(MessagePassing):
         edge_embeddings = self.edge_embedding1(edge_attr[:,0]) + self.edge_embedding2(edge_attr[:,1])
 
         x = self.weight_linear(x).view(-1, self.heads, self.emb_dim)
-        return self.propagate(self.aggr, edge_index, x=x, edge_attr=edge_embeddings)
+        return self.propagate(edge_index[0], x=x, edge_attr=edge_embeddings)
 
     def message(self, edge_index, x_i, x_j, edge_attr):
         edge_attr = edge_attr.view(-1, self.heads, self.emb_dim)
@@ -275,7 +275,7 @@ class GATConv(MessagePassing):
 
 class GraphSAGEConv(MessagePassing):
     def __init__(self, emb_dim, aggr = "mean"):
-        super(GraphSAGEConv, self).__init__()
+        super(GraphSAGEConv, self).__init__(aggr)
 
         self.emb_dim = emb_dim
         self.linear = torch.nn.Linear(emb_dim, emb_dim)
@@ -285,7 +285,7 @@ class GraphSAGEConv(MessagePassing):
         torch.nn.init.xavier_uniform_(self.edge_embedding1.weight.data)
         torch.nn.init.xavier_uniform_(self.edge_embedding2.weight.data)
 
-        self.aggr = aggr
+        #self.aggr = aggr
 
     def forward(self, x, edge_index, edge_attr):
         #add self loops in the edge space
@@ -301,7 +301,7 @@ class GraphSAGEConv(MessagePassing):
 
         x = self.linear(x)
 
-        return self.propagate(self.aggr, edge_index, x=x, edge_attr=edge_embeddings)
+        return self.propagate(edge_index[0], x=x, edge_attr=edge_embeddings)
 
     def message(self, x_j, edge_attr):
         return x_j + edge_attr
@@ -416,7 +416,7 @@ class GNN_M_graphpred(torch.nn.Module):
     """
     def __init__(self, num_motifs, num_layer, emb_dim, num_tasks, JK = "last", 
             drop_ratio = 0, enc_dropout = 0, tfm_dropout = 0, dec_dropout = 0, 
-            enc_ln = True, tfm_ln = False, conc_ln = False, n_heads=4, 
+            enc_ln = True, tfm_ln = False, conc_ln = False, num_heads=4, 
             graph_pooling = "mean", gnn_type = "gin"):
         super(GNN_M_graphpred, self).__init__()
         self.num_motifs = num_motifs
@@ -480,7 +480,7 @@ class GNN_M_graphpred(torch.nn.Module):
                     torch.nn.Linear((self.mult + 1) * cast_dims, self.num_tasks),
             )
 
-        self.motif_pool = MAB(cast_dims, cast_dims, cast_dims, num_heads=n_heads, dropout=tfm_dropout, layer_norm=tfm_ln)
+        self.motif_pool = MAB(cast_dims, cast_dims, cast_dims, num_heads=num_heads, dropout=tfm_dropout, layer_norm=tfm_ln)
         self.motif_pool.reset_parameters()
 
         if self.enc_ln:
@@ -496,7 +496,7 @@ class GNN_M_graphpred(torch.nn.Module):
         _weight_reset(self.motif_dec)
 
         if conc_ln:
-            self.conc_norm1 = torch.nn.LayerNorm(cast_dims)
+            self.conc_norm1 = torch.nn.LayerNorm(2 * cast_dims)
             _weight_reset(self.conc_norm1)
 
     def from_pretrained(self, model_file):
