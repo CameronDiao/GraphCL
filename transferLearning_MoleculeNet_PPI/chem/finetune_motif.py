@@ -130,7 +130,7 @@ def _ortho_constraint(device, prompt):
 def main(**kwargs):
     # Training settings
     parser = argparse.ArgumentParser(description='PyTorch implementation of pre-training of graph neural networks')
-    parser.add_argument('--device', type=int, default=0,
+    parser.add_argument('--device', type=int, default=1,
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--batch_size', type=int, default=32,
                         help='input batch size for training (default: 32)')
@@ -345,17 +345,19 @@ def main(**kwargs):
     #set up optimizer
     #different learning rate for different part of GNN
     model_param_group = []
-    model_param_group.append({"params": model.gnn.parameters()})
-    if args.graph_pooling == "attention":
-        model_param_group.append({"params": model.pool.parameters(), "lr":args.lr*args.lr_scale})
+    #model_param_group.append({"params": model.gnn.parameters()})
+    #if args.graph_pooling == "attention":
+    #    model_param_group.append({"params": model.pool.parameters(), "lr":args.lr*args.lr_scale})
         
     layer_list = []
     for name, param in model.named_parameters():
-        if 'clique' in name or 'motif' in name or 'conc' in name or 'graph_pred' in name:
+        if 'clique' in name or 'motif' in name or 'conc' in name:
             layer_list.append(name)
 
     pred_params = list(map(lambda x: x[1],list(filter(lambda kv: kv[0] in layer_list, model.named_parameters()))))
+    base_params = list(map(lambda x: x[1],list(filter(lambda kv: kv[0] not in layer_list, model.named_parameters()))))
     model_param_group.append({"params": pred_params, "lr": kwargs['lr']})
+    model_param_group.append({"params": base_params})
     #model_param_group.append({"params": model.graph_pred_linear.parameters(), "lr":args.lr*args.lr_scale})
     optimizer = optim.Adam(model_param_group, lr=args.lr, weight_decay=args.decay)
     #print(optimizer)
