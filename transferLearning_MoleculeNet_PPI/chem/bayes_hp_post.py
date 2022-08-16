@@ -10,7 +10,7 @@ from hyperopt.early_stop import no_progress_loss
 import random
 import torch
 
-TASK = 'bbbp'
+TASK = 'bace'
 
 use_ln = [False, True]
 activations = ['relu', 'softplus']
