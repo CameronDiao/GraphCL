@@ -26,8 +26,6 @@ def _weight_reset(block):
             for layer in block:
                 if isinstance(layer, nn.Linear):
                     layer.reset_parameters()
-        else:
-            block.reset_parameters()
 
 class MAB(torch.nn.Module):
     def __init__(self, dim_Q: int, dim_K: int, dim_V: int, num_heads: int, dropout: float = 0.0,
@@ -468,14 +466,12 @@ class GNN_M_graphpred(torch.nn.Module):
         if self.JK == "concat":
             cast_dims = (self.num_layer + 1) * self.emb_dim
             self.clique_embedding = torch.nn.Embedding(num_motifs, cast_dims)
-            #self.graph_pred_linear = torch.nn.Linear(self.mult * (self.num_layer + 1) * self.emb_dim, self.num_tasks)
             self.graph_pred_linear = torch.nn.Sequential(
                     torch.nn.Linear((self.mult + 1) * cast_dims, self.num_tasks),
             )
         else:
             cast_dims = self.emb_dim
             self.clique_embedding = torch.nn.Embedding(num_motifs, cast_dims)
-            #self.graph_pred_linear = torch.nn.Linear(self.mult * self.emb_dim, self.num_tasks)
             self.graph_pred_linear = torch.nn.Sequential(
                     torch.nn.Linear((self.mult + 1) * cast_dims, self.num_tasks),
             )
@@ -500,7 +496,6 @@ class GNN_M_graphpred(torch.nn.Module):
             _weight_reset(self.conc_norm1)
 
     def from_pretrained(self, model_file):
-        #self.gnn = GNN(self.num_layer, self.emb_dim, JK = self.JK, drop_ratio = self.drop_ratio)
         self.gnn.load_state_dict(torch.load(model_file))
 
     def init_clique_emb(self, init):
@@ -540,7 +535,6 @@ class GNN_M_graphpred(torch.nn.Module):
         else:
             rep = F.normalize(rep, dim=1)
         
-        #return self.graph_pred_linear(self.pool(node_representation, batch))
         return graph_representation, self.graph_pred_linear(rep)
 
 

@@ -29,7 +29,7 @@ def train(args, model, device, loader, optimizer):
 
     for step, batch in enumerate(tqdm(loader, desc="Iteration")):
         batch = batch.to(device)
-        pred = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch)
+        __, pred = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch)
         y = batch.y.view(pred.shape).to(torch.float64)
 
         #Whether y is non-null or not.
@@ -55,7 +55,7 @@ def eval(args, model, device, loader):
         batch = batch.to(device)
 
         with torch.no_grad():
-            pred = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch)
+            __, pred = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch)
 
         y_true.append(batch.y.view(pred.shape))
         y_scores.append(pred)
@@ -104,8 +104,8 @@ def main():
     parser.add_argument('--JK', type=str, default="last",
                         help='how the node features across layers are combined. last, sum, max or concat')
     parser.add_argument('--gnn_type', type=str, default="gin")
-    parser.add_argument('--dataset', type=str, default = 'muv', help='root directory of dataset. For now, only classification.')
-    parser.add_argument('--input_model_file', type=str, default = 'models_graphcl/graphcl_60.pth', help='filename to read the model (if there is any)')
+    parser.add_argument('--dataset', type=str, default = 'tox21', help='root directory of dataset. For now, only classification.')
+    parser.add_argument('--input_model_file', type=str, default = 'models_graphcl/graphcl_20.pth', help='filename to read the model (if there is any)')
     parser.add_argument('--filename', type=str, default = '', help='output filename')
     parser.add_argument('--seed', type=int, default=42, help = "Seed for splitting the dataset.")
     parser.add_argument('--runseed', type=int, default=0, help = "Seed for minibatch selection, random initialization.")
@@ -146,7 +146,7 @@ def main():
     #set up dataset
     dataset = MoleculeDataset("dataset/" + args.dataset, dataset=args.dataset)
 
-    print(dataset)
+    #print(dataset)
 
  
     if args.split == "scaffold":
@@ -181,6 +181,7 @@ def main():
     if args.graph_pooling == "attention":
         model_param_group.append({"params": model.pool.parameters(), "lr":args.lr*args.lr_scale})
     model_param_group.append({"params": model.graph_pred_linear.parameters(), "lr":args.lr*args.lr_scale})
+    
     optimizer = optim.Adam(model_param_group, lr=args.lr, weight_decay=args.decay)
     print(optimizer)
 
@@ -226,4 +227,6 @@ def main():
         f.write('\n')
 
 if __name__ == "__main__":
-    main()
+    for _ in range(5):
+        torch.cuda.empty_cache()
+        main()
