@@ -1,3 +1,13 @@
+# MolCPT: Molecule Continuous Prompt Tuning to Generalize Molecular Representation Learning
+
+PyTorch implementation for MolCPT. Authors: Cameron Diao\*, Kaixiong Zhou\*, Xiao Huang, Xia Hu.
+
+## Overview
+
+We provide an implementation of MolCPT with GIN backbone. Pre-trained weights can be found by referencing the original CLRS README, which we provide below. 
+
+To run MolCPT, navigate to the finetuning file [[here]](https://github.com/CameronDiao/GraphCL/tree/master/transferLearning_MoleculeNet_PPI/chem) and edit the hyperparameters passed to the main function. We expose dropout, normalization, and filtering threshold as changeable hyperparameters. 
+
 # Graph Contrastive Learning with Augmentations
 
 PyTorch implementation for [Graph Contrastive Learning with Augmentations](https://arxiv.org/abs/2010.13902) [[poster]](https://yyou1996.github.io/files/neurips2020_graphcl_poster.pdf) [[appendix]](https://yyou1996.github.io/files/neurips2020_graphcl_supplement.pdf)
