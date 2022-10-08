@@ -1,6 +1,6 @@
 # MolCPT: Molecule Continuous Prompt Tuning to Generalize Molecular Representation Learning
 
-PyTorch implementation for MolCPT. Authors: Cameron Diao\*, Kaixiong Zhou\*, Xiao Huang, Xia Hu.
+PyTorch implementation for MolCPT. Author list withheld during review.
 
 ## Overview
 
