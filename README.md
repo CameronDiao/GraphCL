@@ -4,55 +4,21 @@ PyTorch implementation for MolCPT. Author list withheld during review.
 
 ## Overview
 
-We provide an implementation of MolCPT with GIN backbone. Pre-trained weights can be found by referencing the original CLRS README, which we provide below. 
+We provide a PyTorch implementation of MolCPT with GIN backbone. Pre-trained weights can be found by referencing [the original GraphCL README](https://github.com/Shen-Lab/GraphCL/blob/master/README.md). Datasets can be downloaded [here](https://github.com/snap-stanford/pretrain-gnns#dataset-download).
 
-To run MolCPT, navigate to the finetuning file [[here]](https://github.com/CameronDiao/GraphCL/tree/master/transferLearning_MoleculeNet_PPI/chem) and edit the hyperparameters passed to the main function. We expose dropout, normalization, and filtering threshold as changeable hyperparameters. 
+![](./molcpt_mechanics.png) 
 
-# Graph Contrastive Learning with Augmentations
+Environment file can be found under the transferLearning_MoleculeNet_PPI subdirectory. If there are package incompatibility issues, you may want to instead create your environment using the file provided by GraphCL [here](https://github.com/CameronDiao/GraphCL/blob/master/transferLearning_MoleculeNet_PPI/environment.yml).
 
-PyTorch implementation for [Graph Contrastive Learning with Augmentations](https://arxiv.org/abs/2010.13902) [[poster]](https://yyou1996.github.io/files/neurips2020_graphcl_poster.pdf) [[appendix]](https://yyou1996.github.io/files/neurips2020_graphcl_supplement.pdf)
+## Finetuning
 
-Yuning You<sup>\*</sup>, Tianlong Chen<sup>\*</sup>, Yongduo Sui, Ting Chen, Zhangyang Wang, Yang Shen
+To run MolCPT on GraphCL, navigate to the finetuning file [here](https://github.com/CameronDiao/GraphCL/tree/master/transferLearning_MoleculeNet_PPI/chem) and edit the hyperparameters passed to the main function. We expose dropout, normalization, and filtering threshold as changeable hyperparameters. 
 
-In NeurIPS 2020.
-
-## Overview
-
-In this repository, we develop contrastive learning with augmentations for GNN pre-training (GraphCL, Figure 1) to address the challenge of data heterogeneity in graphs.
-Systematic study is performed as shown in Figure 2, to assess the performance of contrasting different augmentations on various types of datasets.
-
-![](./graphcl.png)
-
-![](./augmentations.png)
-
-## Experiments
-
-* [The Role of Data Augmentation](https://github.com/Shen-Lab/GraphCL/tree/master/semisupervised_TU#exploring-the-role-of-data-augmentation-in-graphcl)
-* Semi-supervised learning [[TU Datasets]](https://github.com/Shen-Lab/GraphCL/tree/master/semisupervised_TU#graphcl-with-sampled-augmentations) [[MNIST and CIFAR10]](https://github.com/Shen-Lab/GraphCL/tree/master/semisupervised_MNIST_CIFAR10)
-* Unsupervised representation learning [[TU Datasets]](https://github.com/Shen-Lab/GraphCL/tree/master/unsupervised_TU) [[Cora and Citeseer]](https://github.com/Shen-Lab/GraphCL/tree/master/unsupervised_Cora_Citeseer)
-* Transfer learning [[MoleculeNet and PPI]](https://github.com/Shen-Lab/GraphCL/tree/master/transferLearning_MoleculeNet_PPI)
-* Adversarial robustness [[Component Graphs]](https://github.com/Shen-Lab/GraphCL/tree/master/adversarialRobustness_Component)
-
-## Potential Issues
-Some issues might occur due to the version mismatch. I collect them as follows (keep updating).
-* ```KeyError:'num_nodes'``` in unsupervised_TU: https://github.com/Shen-Lab/GraphCL/issues/36, https://github.com/Shen-Lab/GraphCL/issues/41
-* ```AttributeError: 'Data' object has no attribute 'cat_dim'``` in transferLearning_MoleculeNet_PPI: https://github.com/Shen-Lab/GraphCL/issues/13
-
-## Citation
-
-If you use this code for you research, please cite our paper.
+Finally, run the following commands on terminal (assuming you already cd'd into the top-level of the MolCPT repository):
 
 ```
-@inproceedings{You2020GraphCL,
- author = {You, Yuning and Chen, Tianlong and Sui, Yongduo and Chen, Ting and Wang, Zhangyang and Shen, Yang},
- booktitle = {Advances in Neural Information Processing Systems},
- editor = {H. Larochelle and M. Ranzato and R. Hadsell and M. F. Balcan and H. Lin},
- pages = {5812--5823},
- publisher = {Curran Associates, Inc.},
- title = {Graph Contrastive Learning with Augmentations},
- url = {https://proceedings.neurips.cc/paper/2020/file/3fe230348e9a12c13120749e3f9fa4cd-Paper.pdf},
- volume = {33},
- year = {2020}
-}
+cd ./transferLearning_MoleculeNet_PPI/chem/
+python finetune_motif.py
 ```
 
+Results will be recorded in ```result.log```.
