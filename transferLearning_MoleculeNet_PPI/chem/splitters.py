@@ -24,7 +24,7 @@ def generate_scaffold(smiles, include_chirality=False):
 # scaffold = generate_scaffold(s)
 # assert scaffold == 'c1ccc(Oc2ccccn2)cc1'
 
-def scaffold_split(dataset, smiles_list, task_idx=None, null_value=0,
+def scaffold_split(dataset, smiles_list, task_idx=None, null_value=None,
                    frac_train=0.8, frac_valid=0.1, frac_test=0.1,
                    return_smiles=False):
     """
@@ -52,9 +52,9 @@ def scaffold_split(dataset, smiles_list, task_idx=None, null_value=0,
     if task_idx != None:
         # filter based on null values in task_idx
         # get task array
-        y_task = np.array([data.y[task_idx].item() for data in dataset])
+        y_task = np.array([data.y[:, task_idx].item() for data in dataset])
         # boolean array that correspond to non null values
-        non_null = y_task != null_value
+        non_null = ~np.isnan(y_task)
         smiles_list = list(compress(enumerate(smiles_list), non_null))
     else:
         non_null = np.ones(len(dataset)) == 1
@@ -96,6 +96,25 @@ def scaffold_split(dataset, smiles_list, task_idx=None, null_value=0,
     valid_dataset = dataset[torch.tensor(valid_idx)]
     test_dataset = dataset[torch.tensor(test_idx)]
 
+    train_y_task = y_task[np.array(train_idx)]
+    if len(np.unique(train_y_task)) < 2:
+        if not return_smiles:
+            return None, None, None
+        else:
+            return None, None, None, (None, None, None)
+    valid_y_task = y_task[np.array(valid_idx)]
+    if len(np.unique(valid_y_task)) < 2:
+        if not return_smiles:
+            return None, None, None
+        else:
+            return None, None, None, (None, None, None)
+    test_y_task = y_task[np.array(test_idx)]
+    if len(np.unique(test_y_task)) < 2:
+        if not return_smiles:
+            return None, None, None
+        else:
+            return None, None, None, (None, None, None)
+    
     if not return_smiles:
         return train_dataset, valid_dataset, test_dataset
     else:

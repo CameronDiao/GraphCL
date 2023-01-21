@@ -94,7 +94,7 @@ def main():
                         help='number of GNN message passing layers (default: 5).')
     parser.add_argument('--emb_dim', type=int, default=300,
                         help='embedding dimensions (default: 300)')
-    parser.add_argument('--dropout_ratio', type=float, default=0,
+    parser.add_argument('--dropout_ratio', type=float, default=0.2,
                         help='dropout ratio (default: 0)')
     parser.add_argument('--mask_rate', type=float, default=0.15,
                         help='dropout ratio (default: 0.15)')

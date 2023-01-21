@@ -27,6 +27,9 @@ from copy import deepcopy
 
 from tensorboardX import SummaryWriter
 
+from rdkit import RDLogger     
+RDLogger.DisableLog('rdApp.*')  
+
 criterion = nn.BCEWithLogitsLoss(reduction = "none")
 
 def extract_cliques(device, batch, mol_to_clique, clique_list):
@@ -45,7 +48,8 @@ def extract_cliques(device, batch, mol_to_clique, clique_list):
 def train(args, model, device, loader, optimizer, extract_cliques, clique_list, mol_to_clique):
     model.train()
 
-    for step, batch in enumerate(tqdm(loader, desc="Iteration")):
+    for step, batch in enumerate(loader):
+    #for step, batch in enumerate(tqdm(loader, desc="Iteration")):
         batch = batch.to(device)
 
         mol_idx, clique_idx = extract_cliques(device, batch, mol_to_clique, clique_list)
@@ -72,7 +76,8 @@ def eval(args, model, device, loader, clique_list, mol_to_clique):
     y_true = []
     y_scores = []
 
-    for step, batch in enumerate(tqdm(loader, desc="Iteration")):
+    for step, batch in enumerate(loader):
+    #for step, batch in enumerate(tqdm(loader, desc="Iteration")):
         batch = batch.to(device)
 
         mol_idx, clique_idx = extract_cliques(device, batch, mol_to_clique, clique_list)
@@ -93,9 +98,9 @@ def eval(args, model, device, loader, clique_list, mol_to_clique):
             is_valid = y_true[:,i]**2 > 0
             roc_list.append(roc_auc_score((y_true[is_valid,i] + 1)/2, y_scores[is_valid,i]))
 
-    if len(roc_list) < y_true.shape[1]:
-        print("Some target is missing!")
-        print("Missing ratio: %f" %(1 - float(len(roc_list))/y_true.shape[1]))
+    #if len(roc_list) < y_true.shape[1]:
+    #    print("Some target is missing!")
+    #    print("Missing ratio: %f" %(1 - float(len(roc_list))/y_true.shape[1]))
 
     return sum(roc_list)/len(roc_list) #y_true.shape[1]
 
@@ -122,7 +127,7 @@ def _ortho_constraint(device, prompt):
 def main(**kwargs):
     # Training settings
     parser = argparse.ArgumentParser(description='PyTorch implementation of pre-training of graph neural networks')
-    parser.add_argument('--device', type=int, default=2,
+    parser.add_argument('--device', type=int, default=1,
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--batch_size', type=int, default=32,
                         help='input batch size for training (default: 32)')
@@ -145,8 +150,8 @@ def main(**kwargs):
     parser.add_argument('--JK', type=str, default="last",
                         help='how the node features across layers are combined. last, sum, max or concat')
     parser.add_argument('--gnn_type', type=str, default="gin")
-    parser.add_argument('--dataset', type=str, default = 'tox21', help='root directory of dataset. For now, only classification.')
-    parser.add_argument('--input_model_file', type=str, default = 'models_graphcl/graphcl_20.pth', help='filename to read the model (if there is any)')
+    parser.add_argument('--dataset', type=str, default = 'sider', help='root directory of dataset. For now, only classification.')
+    parser.add_argument('--input_model_file', type=str, default = 'model_gin/masking.pth', help='filename to read the model (if there is any)')
     parser.add_argument('--filename', type=str, default = '', help='output filename')
     parser.add_argument('--seed', type=int, default=42, help = "Seed for splitting the dataset.")
     parser.add_argument('--runseed', type=int, default=0, help = "Seed for minibatch selection, random initialization.")
@@ -187,24 +192,24 @@ def main(**kwargs):
     #set up dataset
     dataset = MoleculeDataset("dataset/" + args.dataset, dataset=args.dataset)
 
-    print(dataset)
+    #print(dataset)
 
  
     if args.split == "scaffold":
         smiles_list = pd.read_csv('dataset/' + args.dataset + '/processed/smiles.csv', header=None)[0].tolist()
         train_dataset, valid_dataset, test_dataset = scaffold_split(dataset, smiles_list, null_value=0, frac_train=0.8,frac_valid=0.1, frac_test=0.1)
-        print("scaffold")
+        #print("scaffold")
     elif args.split == "random":
         train_dataset, valid_dataset, test_dataset = random_split(dataset, null_value=0, frac_train=0.8,frac_valid=0.1, frac_test=0.1, seed = args.seed)
-        print("random")
+        #print("random")
     elif args.split == "random_scaffold":
         smiles_list = pd.read_csv('dataset/' + args.dataset + '/processed/smiles.csv', header=None)[0].tolist()
         train_dataset, valid_dataset, test_dataset = random_scaffold_split(dataset, smiles_list, null_value=0, frac_train=0.8,frac_valid=0.1, frac_test=0.1, seed = args.seed)
-        print("random scaffold")
+        #print("random scaffold")
     else:
         raise ValueError("Invalid split option.")
 
-    print(train_dataset[0])
+    #print(train_dataset[0])
 
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers = args.num_workers)
     val_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers = args.num_workers)
@@ -257,7 +262,7 @@ def main(**kwargs):
     clique_to_mol = _gen_clique_to_mol(clique_list, mol_to_clique)
     emp_mol, clique_list, mol_to_clique = filter_cliques(kwargs['threshold'], train_loader, clique_list, mol_to_clique, clique_to_mol)
     num_motifs = len(clique_list) + 1
-    print("Finished generating motif vocabulary")
+    #print("Finished generating motif vocabulary")
 
     clique_dataset = MolCliqueDatasetWrapper(clique_list, num_motifs, args.num_workers)
     clique_loader = clique_dataset.get_data_loaders()
@@ -312,22 +317,22 @@ def main(**kwargs):
     #model_param_group.append({"params": model.graph_pred_linear.parameters(), "lr":args.lr*args.lr_scale})
     
     optimizer = optim.Adam(model_param_group, lr=args.lr, weight_decay=args.decay)
-    print(optimizer)
+    #print(optimizer)
 
     best_val_acc = -1
     ass_test_acc = -1
     avg_val_acc = []
     
     for epoch in range(1, args.epochs+1):
-        print("====epoch " + str(epoch))
+        #print("====epoch " + str(epoch))
         
         train(args, model, device, train_loader, optimizer, extract_cliques, clique_list, mol_to_clique)
 
-        print("====Evaluation")
+        #print("====Evaluation")
         if args.eval_train:
             train_acc = eval(args, model, device, train_loader, clique_list, mol_to_clique)
         else:
-            print("omit the training accuracy computation")
+            #print("omit the training accuracy computation")
             train_acc = 0
         val_acc = eval(args, model, device, val_loader, clique_list, mol_to_clique)
         test_acc = eval(args, model, device, test_loader, clique_list, mol_to_clique)
@@ -337,14 +342,14 @@ def main(**kwargs):
             best_val_acc = val_acc
             ass_test_acc = test_acc
 
-        print("train: %f val: %f test: %f" %(train_acc, val_acc, test_acc))
+        #print("train: %f val: %f test: %f" %(train_acc, val_acc, test_acc))
 
     avg_val_acc = sum(avg_val_acc) / len(avg_val_acc)
     print("val: %f, test: %f" %(avg_val_acc, ass_test_acc))
 
-    with open('result.log', 'a+') as f:
-        f.write(args.dataset + ' ' + str(args.runseed) + ' ' + str(np.array(test_acc_list)[-1]))
-        f.write('\n')
+    #with open('result.log', 'a+') as f:
+    #    f.write(args.dataset + ' ' + str(args.runseed) + ' ' + str(np.array(test_acc_list)[-1]))
+    #    f.write('\n')
 
     return avg_val_acc, ass_test_acc
 
