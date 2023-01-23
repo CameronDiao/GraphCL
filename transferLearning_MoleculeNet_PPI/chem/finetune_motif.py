@@ -30,7 +30,9 @@ from tensorboardX import SummaryWriter
 from rdkit import RDLogger     
 RDLogger.DisableLog('rdApp.*')  
 
-criterion = nn.BCEWithLogitsLoss(reduction = "none")
+# criterion = nn.BCEWithLogitsLoss(reduction = "none")
+criterion = nn.CrossEntropyLoss()
+
 
 def extract_cliques(device, batch, mol_to_clique, clique_list):
     mol_idx = []
@@ -45,7 +47,7 @@ def extract_cliques(device, batch, mol_to_clique, clique_list):
 
     return mol_idx, clique_idx
 
-def train(args, model, device, loader, optimizer, extract_cliques, clique_list, mol_to_clique):
+def train(args, target, model, device, loader, optimizer, extract_cliques, clique_list, mol_to_clique):
     model.train()
 
     for step, batch in enumerate(loader):
@@ -77,7 +79,7 @@ def train(args, model, device, loader, optimizer, extract_cliques, clique_list, 
         optimizer.step()
 
 
-def eval(args, model, device, loader, clique_list, mol_to_clique):
+def eval(args, target, model, device, loader, clique_list, mol_to_clique):
     model.eval()
     y_true = []
     y_scores = []
@@ -175,7 +177,7 @@ def main(**kwargs):
                         help='how the node features across layers are combined. last, sum, max or concat')
     parser.add_argument('--gnn_type', type=str, default="gin")
     parser.add_argument('--dataset', type=str, default = 'sider', help='root directory of dataset. For now, only classification.')
-    parser.add_argument('--input_model_file', type=str, default = 'model_gin/masking.pth', help='filename to read the model (if there is any)')
+    parser.add_argument('--input_model_file', type=str, default = 'new_models_graphcl/graphcl.pth', help='filename to read the model (if there is any)')
     parser.add_argument('--filename', type=str, default = '', help='output filename')
     parser.add_argument('--seed', type=int, default=42, help = "Seed for splitting the dataset.")
     parser.add_argument('--runseed', type=int, default=0, help = "Seed for minibatch selection, random initialization.")
@@ -384,16 +386,16 @@ def main(**kwargs):
         for epoch in range(1, args.epochs+1):
             #print("====epoch " + str(epoch))
             
-            train(args, model, device, train_loader, optimizer, extract_cliques, clique_list, mol_to_clique)
+            train(args, target, model, device, train_loader, optimizer, extract_cliques, clique_list, mol_to_clique)
 
             #print("====Evaluation")
             if args.eval_train:
-                train_acc = eval(args, model, device, train_loader, clique_list, mol_to_clique)
+                train_acc = eval(args, target, model, device, train_loader, clique_list, mol_to_clique)
             else:
                 #print("omit the training accuracy computation")
                 train_acc = 0
-            val_acc = eval(args, model, device, val_loader, clique_list, mol_to_clique)
-            test_acc = eval(args, model, device, test_loader, clique_list, mol_to_clique)
+            val_acc = eval(args, target, model, device, val_loader, clique_list, mol_to_clique)
+            test_acc = eval(args, target, model, device, test_loader, clique_list, mol_to_clique)
 
             avg_val_acc.append(val_acc)
             if val_acc > best_val_acc:
