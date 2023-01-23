@@ -44,12 +44,9 @@ def train(args, kwargs, target, model, device, loader, optimizer):
             y = batch.y[target].flatten().to(torch.long)
 
         preds, embs = model.forward_cl(batch.x, y, batch.edge_index, batch.edge_attr, batch.batch, device)
-        try:
-            loss = model.loss_cl(preds, embs)
-        except IndexError:
-            preds = preds.unsqueeze(0)
-            embs = embs.unsqueeze(0)
-            loss = model.loss_cl(preds, embs)
+        if len(preds.shape) != len(embs.shape):
+            embs = embs.view(*preds.shape) 
+        loss = model.loss_cl(preds, embs)
         loss += kwargs['ortho_weight'] * _ortho_constraint(device, model.get_label_emb())
 
         loss.backward()
@@ -64,8 +61,13 @@ def eval(args, kwargs, target, model, device, loader):
     for step, batch in enumerate(loader):
         batch = batch.to(device)
 
+        if len(batch.y.shape) > 1:
+            y = batch.y[:, target].flatten()
+        else:
+            y = batch.y[target].flatten()
+
         with torch.no_grad():
-            preds, __ = model.forward_cl(batch.x, batch.y, batch.edge_index, batch.edge_attr, batch.batch, device)
+            preds, __ = model.forward_cl(batch.x, y, batch.edge_index, batch.edge_attr, batch.batch, device)
 
         preds = F.normalize(preds, dim=1)
         embs = model.get_label_emb()
@@ -80,11 +82,6 @@ def eval(args, kwargs, target, model, device, loader):
 
         similarities = torch.mm(preds, embs.T)
         pred= F.softmax(similarities, dim=-1)
-
-        if len(batch.y.shape) > 1:
-            y = batch.y[:, target].flatten()
-        else:
-            y = batch.y[target].flatten()
 
         if device == 'cpu':
             y_true.extend(y.numpy())
@@ -123,7 +120,7 @@ def main(**kwargs):
     parser.add_argument('--JK', type=str, default="last",
                         help='how the node features across layers are combined. last, sum, max or concat')
     parser.add_argument('--gnn_type', type=str, default="gin")
-    parser.add_argument('--dataset', type=str, default = 'hiv', help='root directory of dataset. For now, only classification.')
+    parser.add_argument('--dataset', type=str, default = 'muv', help='root directory of dataset. For now, only classification.')
     parser.add_argument('--gnn_model_file', type=str, default = 'new_models_graphcl/graphcl.pth', help='filename to read the gnn model (if there is any)')
     parser.add_argument('--proj_head_file', type=str, default = 'new_models_graphcl/graphcl_head.pth', help='filename to read the projection head weights')
     parser.add_argument('--filename', type=str, default = '', help='output filename')
