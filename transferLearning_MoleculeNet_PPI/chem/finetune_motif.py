@@ -175,7 +175,7 @@ def main(**kwargs):
                         help='how the node features across layers are combined. last, sum, max or concat')
     parser.add_argument('--gnn_type', type=str, default="gin")
     parser.add_argument('--dataset', type=str, default = 'sider', help='root directory of dataset. For now, only classification.')
-    parser.add_argument('--input_model_file', type=str, default = 'model_gin/masking.pth', help='filename to read the model (if there is any)')
+    parser.add_argument('--input_model_file', type=str, default = 'new_models_graphcl/graphcl.pth', help='filename to read the model (if there is any)')
     parser.add_argument('--filename', type=str, default = '', help='output filename')
     parser.add_argument('--seed', type=int, default=42, help = "Seed for splitting the dataset.")
     parser.add_argument('--runseed', type=int, default=0, help = "Seed for minibatch selection, random initialization.")
@@ -327,7 +327,7 @@ def main(**kwargs):
         clique_loader = clique_dataset.get_data_loaders()
 
         #set up model
-        model = GNN_graphpred(args.num_layer, args.emb_dim, num_tasks, JK = args.JK, drop_ratio = args.dropout_ratio, graph_pooling = args.graph_pooling, gnn_type = args.gnn_type)
+        model = GNN_graphpred(args.num_layer, args.emb_dim, JK = args.JK, drop_ratio = args.dropout_ratio, graph_pooling = args.graph_pooling, gnn_type = args.gnn_type)
         if not args.input_model_file == "":
             model.from_pretrained(args.input_model_file)
         

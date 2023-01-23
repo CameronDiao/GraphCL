@@ -21,9 +21,9 @@ def objective(params):
 
     res = []
 
-    print('hiv: {}'.format(params))
+    print('tox21: {}'.format(params))
 
-    for __ in range(3):
+    for __ in range(1):
         val_acc = main(**params)
         res.append(-val_acc)
 
