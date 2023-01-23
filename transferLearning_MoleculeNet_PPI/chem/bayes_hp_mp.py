@@ -19,7 +19,7 @@ params = {}
 for d in dropout:
     for n in n_heads:
         params['lr'] = 0.001
-        params['threshold'] = 100
+        params['threshold'] = 10
         params['enc_dropout'] = d
         params['tfm_dropout'] = d
         params['dec_dropout'] = d
@@ -32,9 +32,9 @@ for d in dropout:
         params['num_heads'] = int(n)
 
         res = []
-        print('hiv: {}'.format(params))
+        print('sider: {}'.format(params))
 
-        for __ in range(3):
+        for __ in range(1):
             val_acc = main(**params)
             res.append(-val_acc)
 

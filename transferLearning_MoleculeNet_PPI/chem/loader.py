@@ -389,7 +389,7 @@ class MoleculeDataset_aug(InMemoryDataset):
         for key in self.data.keys:
             item, slices = self.data[key], self.slices[key]
             s = list(repeat(slice(None), item.dim()))
-            s[data.cat_dim(key, item)] = slice(slices[idx],
+            s[data.__cat_dim__(key, item)] = slice(slices[idx],
                                                     slices[idx + 1])
             data[key] = item[s]
 
@@ -1138,7 +1138,7 @@ class MoleculeDataset(InMemoryDataset):
         for key in self.data.keys:
             item, slices = self.data[key], self.slices[key]
             s = list(repeat(slice(None), item.dim()))
-            s[data.cat_dim(key, item)] = slice(slices[idx],
+            s[data.__cat_dim__(key, item)] = slice(slices[idx],
                                                     slices[idx + 1])
             data[key] = item[s]
         data.mol_index = idx

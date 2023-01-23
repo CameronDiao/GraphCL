@@ -151,7 +151,7 @@ def _ortho_constraint(device, prompt):
 def main(**kwargs):
     # Training settings
     parser = argparse.ArgumentParser(description='PyTorch implementation of pre-training of graph neural networks')
-    parser.add_argument('--device', type=int, default=1,
+    parser.add_argument('--device', type=int, default=0,
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--batch_size', type=int, default=32,
                         help='input batch size for training (default: 32)')
@@ -327,7 +327,7 @@ def main(**kwargs):
         clique_loader = clique_dataset.get_data_loaders()
 
         #set up model
-        model = GNN_graphpred(args.num_layer, args.emb_dim, num_tasks, JK = args.JK, drop_ratio = args.dropout_ratio, graph_pooling = args.graph_pooling, gnn_type = args.gnn_type)
+        model = GNN_graphpred(args.num_layer, args.emb_dim, JK = args.JK, drop_ratio = args.dropout_ratio, graph_pooling = args.graph_pooling, gnn_type = args.gnn_type)
         if not args.input_model_file == "":
             model.from_pretrained(args.input_model_file)
         
@@ -347,7 +347,7 @@ def main(**kwargs):
             dummy_motif = torch.zeros((1, motif_feats.shape[1])).to(device)
             motif_feats = torch.cat((motif_feats, dummy_motif), dim=0)
 
-        model = GNN_M_graphpred(num_motifs, args.num_layer, args.emb_dim, num_tasks, JK = args.JK,
+        model = GNN_M_graphpred(num_motifs, args.num_layer, args.emb_dim, JK = args.JK,
                 drop_ratio = args.dropout_ratio, enc_dropout=kwargs['enc_dropout'], tfm_dropout=kwargs['tfm_dropout'], dec_dropout=kwargs['dec_dropout'],
                 enc_ln=kwargs['enc_ln'], tfm_ln=kwargs['tfm_ln'], conc_ln=kwargs['conc_ln'], graph_pooling = args.graph_pooling, gnn_type = args.gnn_type)
         if not args.input_model_file == "":
