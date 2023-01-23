@@ -30,7 +30,9 @@ from tensorboardX import SummaryWriter
 from rdkit import RDLogger     
 RDLogger.DisableLog('rdApp.*')  
 
-criterion = nn.BCEWithLogitsLoss(reduction = "none")
+# criterion = nn.BCEWithLogitsLoss(reduction = "none")
+criterion = nn.CrossEntropyLoss()
+
 
 def extract_cliques(device, batch, mol_to_clique, clique_list):
     mol_idx = []
@@ -45,7 +47,7 @@ def extract_cliques(device, batch, mol_to_clique, clique_list):
 
     return mol_idx, clique_idx
 
-def train(args, model, device, loader, optimizer, extract_cliques, clique_list, mol_to_clique):
+def train(args, target, model, device, loader, optimizer, extract_cliques, clique_list, mol_to_clique):
     model.train()
 
     for step, batch in enumerate(loader):
@@ -77,7 +79,7 @@ def train(args, model, device, loader, optimizer, extract_cliques, clique_list, 
         optimizer.step()
 
 
-def eval(args, model, device, loader, clique_list, mol_to_clique):
+def eval(args, target, model, device, loader, clique_list, mol_to_clique):
     model.eval()
     y_true = []
     y_scores = []
@@ -347,7 +349,7 @@ def main(**kwargs):
             dummy_motif = torch.zeros((1, motif_feats.shape[1])).to(device)
             motif_feats = torch.cat((motif_feats, dummy_motif), dim=0)
 
-        model = GNN_M_graphpred(num_motifs, args.num_layer, args.emb_dim, num_tasks, JK = args.JK,
+        model = GNN_M_graphpred(num_motifs, args.num_layer, args.emb_dim, JK = args.JK,
                 drop_ratio = args.dropout_ratio, enc_dropout=kwargs['enc_dropout'], tfm_dropout=kwargs['tfm_dropout'], dec_dropout=kwargs['dec_dropout'],
                 enc_ln=kwargs['enc_ln'], tfm_ln=kwargs['tfm_ln'], conc_ln=kwargs['conc_ln'], graph_pooling = args.graph_pooling, gnn_type = args.gnn_type)
         if not args.input_model_file == "":
@@ -384,16 +386,16 @@ def main(**kwargs):
         for epoch in range(1, args.epochs+1):
             #print("====epoch " + str(epoch))
             
-            train(args, model, device, train_loader, optimizer, extract_cliques, clique_list, mol_to_clique)
+            train(args, target, model, device, train_loader, optimizer, extract_cliques, clique_list, mol_to_clique)
 
             #print("====Evaluation")
             if args.eval_train:
-                train_acc = eval(args, model, device, train_loader, clique_list, mol_to_clique)
+                train_acc = eval(args, target, model, device, train_loader, clique_list, mol_to_clique)
             else:
                 #print("omit the training accuracy computation")
                 train_acc = 0
-            val_acc = eval(args, model, device, val_loader, clique_list, mol_to_clique)
-            test_acc = eval(args, model, device, test_loader, clique_list, mol_to_clique)
+            val_acc = eval(args, target, model, device, val_loader, clique_list, mol_to_clique)
+            test_acc = eval(args, target, model, device, test_loader, clique_list, mol_to_clique)
 
             avg_val_acc.append(val_acc)
             if val_acc > best_val_acc:

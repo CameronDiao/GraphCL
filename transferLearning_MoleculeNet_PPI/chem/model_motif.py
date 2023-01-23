@@ -412,7 +412,7 @@ class GNN_M_graphpred(torch.nn.Module):
     See https://arxiv.org/abs/1810.00826
     JK-net: https://arxiv.org/abs/1806.03536
     """
-    def __init__(self, num_motifs, num_layer, emb_dim, num_tasks, JK = "last", 
+    def __init__(self, num_motifs, num_layer, emb_dim, JK = "last", 
             drop_ratio = 0, enc_dropout = 0, tfm_dropout = 0, dec_dropout = 0, 
             enc_ln = True, tfm_ln = False, conc_ln = False, num_heads=4, 
             graph_pooling = "mean", gnn_type = "gin"):
@@ -422,7 +422,6 @@ class GNN_M_graphpred(torch.nn.Module):
         self.drop_ratio = drop_ratio
         self.JK = JK
         self.emb_dim = emb_dim
-        self.num_tasks = num_tasks
 
         self.enc_dropout = enc_dropout
         self.tfm_dropout = tfm_dropout
@@ -467,13 +466,13 @@ class GNN_M_graphpred(torch.nn.Module):
             cast_dims = (self.num_layer + 1) * self.emb_dim
             self.clique_embedding = torch.nn.Embedding(num_motifs, cast_dims)
             self.graph_pred_linear = torch.nn.Sequential(
-                    torch.nn.Linear((self.mult + 1) * cast_dims, self.num_tasks),
+                    torch.nn.Linear((self.mult + 1) * cast_dims, 2),
             )
         else:
             cast_dims = self.emb_dim
             self.clique_embedding = torch.nn.Embedding(num_motifs, cast_dims)
             self.graph_pred_linear = torch.nn.Sequential(
-                    torch.nn.Linear((self.mult + 1) * cast_dims, self.num_tasks),
+                    torch.nn.Linear((self.mult + 1) * cast_dims, 2),
             )
 
         self.motif_pool = MAB(cast_dims, cast_dims, cast_dims, num_heads=num_heads, dropout=tfm_dropout, layer_norm=tfm_ln)
