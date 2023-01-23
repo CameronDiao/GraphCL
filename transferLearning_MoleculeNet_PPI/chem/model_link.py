@@ -317,8 +317,8 @@ class GNN_link(torch.nn.Module):
         x = self.projection_head(x)
 
         labels = y.clone().squeeze().to(torch.long)
-        labels[labels == 0] = torch.randint(0, self.num_clusters, labels[labels == 0].shape).to(device)
-        labels[labels == 1] = self.num_clusters + torch.randint(0, self.num_clusters, labels[labels == 1].shape).to(device)
+        labels[labels == 0] = torch.randint(0, self.num_clusters, labels[labels == 0].shape, device=device)
+        labels[labels == 1] = self.num_clusters + torch.randint(0, self.num_clusters, labels[labels == 1].shape, device=device)
 
         l = self.label_embedding(labels)
 

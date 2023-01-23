@@ -21,14 +21,14 @@ def objective(params):
 
     res = []
 
-    print('bbbp: {}'.format(params))
+    print('hiv: {}'.format(params))
 
-    for __ in range(5):
+    for __ in range(3):
         val_acc = main(**params)
         res.append(-val_acc)
 
     ret = sum(res) / len(res)
-    print(ret)
+    print('Average Val Acc: {}'.format(ret))
     return ret
 
 trials = Trials()

@@ -55,17 +55,23 @@ def train(args, model, device, loader, optimizer, extract_cliques, clique_list, 
         mol_idx, clique_idx = extract_cliques(device, batch, mol_to_clique, clique_list)
 
         __, pred = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch, mol_idx, clique_idx)
-        y = batch.y.view(pred.shape).to(torch.float64)
+        # y = batch.y.view(pred.shape).to(torch.float64)
 
-        #Whether y is non-null or not.
-        is_valid = y**2 > 0
-        #Loss matrix
-        loss_mat = criterion(pred.double(), (y+1)/2)
-        #loss matrix after removing null target
-        loss_mat = torch.where(is_valid, loss_mat, torch.zeros(loss_mat.shape).to(loss_mat.device).to(loss_mat.dtype))
+        if len(batch.y.shape) > 1:
+            y = batch.y[:, target].flatten().to(torch.long)
+        else:
+            y = batch.y[target].flatten().to(torch.long)
+
+        # #Whether y is non-null or not.
+        # is_valid = y**2 > 0
+        # #Loss matrix
+        # loss_mat = criterion(pred.double(), (y+1)/2)
+        # #loss matrix after removing null target
+        # loss_mat = torch.where(is_valid, loss_mat, torch.zeros(loss_mat.shape).to(loss_mat.device).to(loss_mat.dtype))
             
         optimizer.zero_grad()
-        loss = torch.sum(loss_mat)/torch.sum(is_valid)
+        # loss = torch.sum(loss_mat)/torch.sum(is_valid)
+        loss = criterion(pred, y)
         loss.backward()
 
         optimizer.step()
@@ -85,24 +91,42 @@ def eval(args, model, device, loader, clique_list, mol_to_clique):
         with torch.no_grad():
             __, pred = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch, mol_idx, clique_idx)
 
-        y_true.append(batch.y.view(pred.shape))
-        y_scores.append(pred)
+        pred = F.softmax(pred, dim=-1)
 
-    y_true = torch.cat(y_true, dim = 0).cpu().numpy()
-    y_scores = torch.cat(y_scores, dim = 0).cpu().numpy()
+        # y_true.append(batch.y.view(pred.shape))
+        # y_scores.append(pred)
 
-    roc_list = []
-    for i in range(y_true.shape[1]):
-        #AUC is only defined when there is at least one positive data.
-        if np.sum(y_true[:,i] == 1) > 0 and np.sum(y_true[:,i] == -1) > 0:
-            is_valid = y_true[:,i]**2 > 0
-            roc_list.append(roc_auc_score((y_true[is_valid,i] + 1)/2, y_scores[is_valid,i]))
+        if len(batch.y.shape) > 1:
+            y = batch.y[:, target].flatten()
+        else:
+            y = batch.y[target].flatten()
 
-    #if len(roc_list) < y_true.shape[1]:
-    #    print("Some target is missing!")
-    #    print("Missing ratio: %f" %(1 - float(len(roc_list))/y_true.shape[1]))
+        if device == 'cpu':
+            y_true.extend(y.numpy())
+            y_scores.extend(pred.detach().numpy())
+        else:
+            y_true.extend(y.cpu().numpy())
+            y_scores.extend(pred.cpu().detach().numpy())
 
-    return sum(roc_list)/len(roc_list) #y_true.shape[1]
+    # y_true = torch.cat(y_true, dim = 0).cpu().numpy()
+    # y_scores = torch.cat(y_scores, dim = 0).cpu().numpy()
+
+    # roc_list = []
+    # for i in range(y_true.shape[1]):
+    #     #AUC is only defined when there is at least one positive data.
+    #     if np.sum(y_true[:,i] == 1) > 0 and np.sum(y_true[:,i] == -1) > 0:
+    #         is_valid = y_true[:,i]**2 > 0
+    #         roc_list.append(roc_auc_score((y_true[is_valid,i] + 1)/2, y_scores[is_valid,i]))
+
+    # #if len(roc_list) < y_true.shape[1]:
+    # #    print("Some target is missing!")
+    # #    print("Missing ratio: %f" %(1 - float(len(roc_list))/y_true.shape[1]))
+
+    # return sum(roc_list)/len(roc_list) #y_true.shape[1]
+
+    y_true = np.array(y_true)
+    y_scores = np.array(y_scores)
+    return roc_auc_score(y_true, y_scores[:, 1])
 
 def _gen_clique_to_mol(clique_list, mol_to_clique):
     clique_to_mol = defaultdict(list)
@@ -170,22 +194,50 @@ def main(**kwargs):
     #Bunch of classification tasks
     if args.dataset == "tox21":
         num_tasks = 12
+        target_list = [
+            "NR-AR", "NR-AR-LBD", "NR-AhR", "NR-Aromatase", "NR-ER", "NR-ER-LBD", 
+            "NR-PPAR-gamma", "SR-ARE", "SR-ATAD5", "SR-HSE", "SR-MMP", "SR-p53"
+        ]
     elif args.dataset == "hiv":
         num_tasks = 1
+        target_list = ["HIV_active"]
     elif args.dataset == "pcba":
         num_tasks = 128
     elif args.dataset == "muv":
         num_tasks = 17
+        target_list = [
+            'MUV-692', 'MUV-689', 'MUV-846', 'MUV-859', 'MUV-644', 'MUV-548', 'MUV-852',
+            'MUV-600', 'MUV-810', 'MUV-712', 'MUV-737', 'MUV-858', 'MUV-713', 'MUV-733',
+            'MUV-652', 'MUV-466', 'MUV-832'
+        ]
     elif args.dataset == "bace":
         num_tasks = 1
+        target_list = ["Class"]
     elif args.dataset == "bbbp":
         num_tasks = 1
+        target_list = ["p_np"]
     elif args.dataset == "toxcast":
         num_tasks = 617
     elif args.dataset == "sider":
         num_tasks = 27
+        target_list = [
+            "Hepatobiliary disorders", "Metabolism and nutrition disorders", "Product issues", 
+            "Eye disorders", "Investigations", "Musculoskeletal and connective tissue disorders", 
+            "Gastrointestinal disorders", "Social circumstances", "Immune system disorders", 
+            "Reproductive system and breast disorders", 
+            "Neoplasms benign, malignant and unspecified (incl cysts and polyps)", 
+            "General disorders and administration site conditions", "Endocrine disorders", 
+            "Surgical and medical procedures", "Vascular disorders", 
+            "Blood and lymphatic system disorders", "Skin and subcutaneous tissue disorders", 
+            "Congenital, familial and genetic disorders", "Infections and infestations", 
+            "Respiratory, thoracic and mediastinal disorders", "Psychiatric disorders", 
+            "Renal and urinary disorders", "Pregnancy, puerperium and perinatal conditions", 
+            "Ear and labyrinth disorders", "Cardiac disorders", 
+            "Nervous system disorders", "Injury, poisoning and procedural complications"
+        ]
     elif args.dataset == "clintox":
         num_tasks = 2
+        target_list = ['CT_TOX', 'FDA_APPROVED']
     else:
         raise ValueError("Invalid dataset name.")
 
@@ -194,26 +246,6 @@ def main(**kwargs):
 
     #print(dataset)
 
- 
-    if args.split == "scaffold":
-        smiles_list = pd.read_csv('dataset/' + args.dataset + '/processed/smiles.csv', header=None)[0].tolist()
-        train_dataset, valid_dataset, test_dataset = scaffold_split(dataset, smiles_list, null_value=0, frac_train=0.8,frac_valid=0.1, frac_test=0.1)
-        #print("scaffold")
-    elif args.split == "random":
-        train_dataset, valid_dataset, test_dataset = random_split(dataset, null_value=0, frac_train=0.8,frac_valid=0.1, frac_test=0.1, seed = args.seed)
-        #print("random")
-    elif args.split == "random_scaffold":
-        smiles_list = pd.read_csv('dataset/' + args.dataset + '/processed/smiles.csv', header=None)[0].tolist()
-        train_dataset, valid_dataset, test_dataset = random_scaffold_split(dataset, smiles_list, null_value=0, frac_train=0.8,frac_valid=0.1, frac_test=0.1, seed = args.seed)
-        #print("random scaffold")
-    else:
-        raise ValueError("Invalid split option.")
-
-    #print(train_dataset[0])
-
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers = args.num_workers)
-    val_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers = args.num_workers)
-    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers = args.num_workers)
 
     def gen_cliques(smiles_data):
         mol_to_clique = {}
@@ -258,102 +290,124 @@ def main(**kwargs):
         clique_list = list(set(clique_list) - set(fil_clique_list))
         return emp_mol, clique_list, mol_to_clique
 
-    clique_list, mol_to_clique = gen_cliques(smiles_list)
-    clique_to_mol = _gen_clique_to_mol(clique_list, mol_to_clique)
-    emp_mol, clique_list, mol_to_clique = filter_cliques(kwargs['threshold'], train_loader, clique_list, mol_to_clique, clique_to_mol)
-    num_motifs = len(clique_list) + 1
-    #print("Finished generating motif vocabulary")
-
-    clique_dataset = MolCliqueDatasetWrapper(clique_list, num_motifs, args.num_workers)
-    clique_loader = clique_dataset.get_data_loaders()
-
-    #set up model
-    model = GNN_graphpred(args.num_layer, args.emb_dim, num_tasks, JK = args.JK, drop_ratio = args.dropout_ratio, graph_pooling = args.graph_pooling, gnn_type = args.gnn_type)
-    if not args.input_model_file == "":
-        model.from_pretrained(args.input_model_file)
-    
-    model.to(device)
-
-    with torch.no_grad():
-
-        motif_feats = []
-        for c in clique_loader:
-            c = c.to(device)
-            emb, __ = model(c)
-            motif_feats.append(emb)
-
-        motif_feats = torch.cat(motif_feats)
-
-        clique_list.append("EMP")
-
-        dummy_motif = torch.zeros((1, motif_feats.shape[1])).to(device)
-        motif_feats = torch.cat((motif_feats, dummy_motif), dim=0)
-
-    model = GNN_M_graphpred(num_motifs, args.num_layer, args.emb_dim, num_tasks, JK = args.JK,
-            drop_ratio = args.dropout_ratio, enc_dropout=kwargs['enc_dropout'], tfm_dropout=kwargs['tfm_dropout'], dec_dropout=kwargs['dec_dropout'],
-            enc_ln=kwargs['enc_ln'], tfm_ln=kwargs['tfm_ln'], conc_ln=kwargs['conc_ln'], graph_pooling = args.graph_pooling, gnn_type = args.gnn_type)
-    if not args.input_model_file == "":
-        model.from_pretrained(args.input_model_file)
-    model.init_clique_emb(motif_feats)
-
-    model.to(device)
-
-    #set up optimizer
-    #different learning rate for different part of GNN
-    model_param_group = []
-    #model_param_group.append({"params": model.gnn.parameters()})
-    #if args.graph_pooling == "attention":
-    #    model_param_group.append({"params": model.pool.parameters(), "lr":args.lr*args.lr_scale})
-        
-    layer_list = []
-    for name, param in model.named_parameters():
-        if 'clique' in name or 'motif' in name or 'conc' in name:
-            layer_list.append(name)
-
-    pred_params = list(map(lambda x: x[1],list(filter(lambda kv: kv[0] in layer_list, model.named_parameters()))))
-    base_params = list(map(lambda x: x[1],list(filter(lambda kv: kv[0] not in layer_list, model.named_parameters()))))
-    model_param_group.append({"params": pred_params, "lr": kwargs['lr']})
-    model_param_group.append({"params": base_params})
-    #model_param_group.append({"params": model.graph_pred_linear.parameters(), "lr":args.lr*args.lr_scale})
-    
-    optimizer = optim.Adam(model_param_group, lr=args.lr, weight_decay=args.decay)
-    #print(optimizer)
-
-    best_val_acc = -1
-    ass_test_acc = -1
-    avg_val_acc = []
-    
-    for epoch in range(1, args.epochs+1):
-        #print("====epoch " + str(epoch))
-        
-        train(args, model, device, train_loader, optimizer, extract_cliques, clique_list, mol_to_clique)
-
-        #print("====Evaluation")
-        if args.eval_train:
-            train_acc = eval(args, model, device, train_loader, clique_list, mol_to_clique)
+    total_val_acc = []
+    for target in range(len(target_list)):
+        if args.split == "scaffold":
+            smiles_list = pd.read_csv('dataset/' + args.dataset + '/processed/smiles.csv', header=None)[0].tolist()
+            train_dataset, valid_dataset, test_dataset = scaffold_split(dataset, smiles_list, task_idx=target, null_value=np.nan, frac_train=0.8,frac_valid=0.1, frac_test=0.1)
+            #print("scaffold")
+        elif args.split == "random":
+            train_dataset, valid_dataset, test_dataset = random_split(dataset, task_idx=target, null_value=np.nan, frac_train=0.8, frac_valid=0.1, frac_test=0.1, seed = args.seed)
+            #print("random")
+        elif args.split == "random_scaffold":
+            smiles_list = pd.read_csv('dataset/' + args.dataset + '/processed/smiles.csv', header=None)[0].tolist()
+            train_dataset, valid_dataset, test_dataset = random_scaffold_split(dataset, smiles_list, task_idx=target, null_value=np.nan, frac_train=0.8,frac_valid=0.1, frac_test=0.1, seed = args.seed)
+            #print("random scaffold")
         else:
-            #print("omit the training accuracy computation")
-            train_acc = 0
-        val_acc = eval(args, model, device, val_loader, clique_list, mol_to_clique)
-        test_acc = eval(args, model, device, test_loader, clique_list, mol_to_clique)
+            raise ValueError("Invalid split option.")
 
-        avg_val_acc.append(val_acc)
-        if val_acc > best_val_acc:
-            best_val_acc = val_acc
-            ass_test_acc = test_acc
+        #print(train_dataset[0])
 
-        #print("train: %f val: %f test: %f" %(train_acc, val_acc, test_acc))
+        if train_dataset is None:
+            print("Task omitted!")
+            total_val_acc.append(1.0)
+            continue
 
-    avg_val_acc = sum(avg_val_acc) / len(avg_val_acc)
-    print("val: %f, test: %f" %(avg_val_acc, ass_test_acc))
+        train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers = args.num_workers)
+        val_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers = args.num_workers)
+        test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers = args.num_workers)
 
-    #with open('result.log', 'a+') as f:
-    #    f.write(args.dataset + ' ' + str(args.runseed) + ' ' + str(np.array(test_acc_list)[-1]))
-    #    f.write('\n')
+        clique_list, mol_to_clique = gen_cliques(smiles_list)
+        clique_to_mol = _gen_clique_to_mol(clique_list, mol_to_clique)
+        emp_mol, clique_list, mol_to_clique = filter_cliques(kwargs['threshold'], train_loader, clique_list, mol_to_clique, clique_to_mol)
+        num_motifs = len(clique_list) + 1
+        #print("Finished generating motif vocabulary")
 
-    return avg_val_acc, ass_test_acc
+        clique_dataset = MolCliqueDatasetWrapper(clique_list, num_motifs, args.num_workers)
+        clique_loader = clique_dataset.get_data_loaders()
+
+        #set up model
+        model = GNN_graphpred(args.num_layer, args.emb_dim, num_tasks, JK = args.JK, drop_ratio = args.dropout_ratio, graph_pooling = args.graph_pooling, gnn_type = args.gnn_type)
+        if not args.input_model_file == "":
+            model.from_pretrained(args.input_model_file)
+        
+        model.to(device)
+
+        with torch.no_grad():
+            motif_feats = []
+            for c in clique_loader:
+                c = c.to(device)
+                emb, __ = model(c)
+                motif_feats.append(emb)
+
+            motif_feats = torch.cat(motif_feats)
+
+            clique_list.append("EMP")
+
+            dummy_motif = torch.zeros((1, motif_feats.shape[1])).to(device)
+            motif_feats = torch.cat((motif_feats, dummy_motif), dim=0)
+
+        model = GNN_M_graphpred(num_motifs, args.num_layer, args.emb_dim, num_tasks, JK = args.JK,
+                drop_ratio = args.dropout_ratio, enc_dropout=kwargs['enc_dropout'], tfm_dropout=kwargs['tfm_dropout'], dec_dropout=kwargs['dec_dropout'],
+                enc_ln=kwargs['enc_ln'], tfm_ln=kwargs['tfm_ln'], conc_ln=kwargs['conc_ln'], graph_pooling = args.graph_pooling, gnn_type = args.gnn_type)
+        if not args.input_model_file == "":
+            model.from_pretrained(args.input_model_file)
+            model.init_clique_emb(motif_feats)
+
+        model.to(device)
+
+        #set up optimizer
+        #different learning rate for different part of GNN
+        model_param_group = []
+        #model_param_group.append({"params": model.gnn.parameters()})
+        #if args.graph_pooling == "attention":
+        #    model_param_group.append({"params": model.pool.parameters(), "lr":args.lr*args.lr_scale})
+            
+        layer_list = []
+        for name, param in model.named_parameters():
+            if 'clique' in name or 'motif' in name or 'conc' in name:
+                layer_list.append(name)
+
+        pred_params = list(map(lambda x: x[1],list(filter(lambda kv: kv[0] in layer_list, model.named_parameters()))))
+        base_params = list(map(lambda x: x[1],list(filter(lambda kv: kv[0] not in layer_list, model.named_parameters()))))
+        model_param_group.append({"params": pred_params, "lr": kwargs['lr']})
+        model_param_group.append({"params": base_params})
+        #model_param_group.append({"params": model.graph_pred_linear.parameters(), "lr":args.lr*args.lr_scale})
+        
+        optimizer = optim.Adam(model_param_group, lr=args.lr, weight_decay=args.decay)
+        #print(optimizer)
+
+        best_val_acc = -1
+        ass_test_acc = -1
+        avg_val_acc = []
+        
+        for epoch in range(1, args.epochs+1):
+            #print("====epoch " + str(epoch))
+            
+            train(args, model, device, train_loader, optimizer, extract_cliques, clique_list, mol_to_clique)
+
+            #print("====Evaluation")
+            if args.eval_train:
+                train_acc = eval(args, model, device, train_loader, clique_list, mol_to_clique)
+            else:
+                #print("omit the training accuracy computation")
+                train_acc = 0
+            val_acc = eval(args, model, device, val_loader, clique_list, mol_to_clique)
+            test_acc = eval(args, model, device, test_loader, clique_list, mol_to_clique)
+
+            avg_val_acc.append(val_acc)
+            if val_acc > best_val_acc:
+                best_val_acc = val_acc
+                ass_test_acc = test_acc
+
+            #print("train: %f val: %f test: %f" %(train_acc, val_acc, test_acc))
+
+        avg_val_acc = sum(avg_val_acc) / len(avg_val_acc)
+        total_val_acc.append(avg_val_acc)
+        print(ass_test_acc)
+        # print("val: %f, test: %f" %(avg_val_acc, ass_test_acc))
+    return sum(total_val_acc) / len(total_val_acc)
 
 if __name__ == "__main__":
-    for _ in range(5):
-        torch.cuda.empty_cache()
+    for _ in range(10):
         main(threshold=50, lr=0.005, enc_dropout=0.2, tfm_dropout=0.5, dec_dropout=0.3, enc_ln=False, tfm_ln=True, conc_ln=True, num_heads=4)

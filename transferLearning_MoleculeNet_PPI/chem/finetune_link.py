@@ -37,9 +37,20 @@ def train(args, kwargs, target, model, device, loader, optimizer):
 
         optimizer.zero_grad()
 
-        preds, embs = model.forward_cl(batch.x, batch.y, batch.edge_index, batch.edge_attr, batch.batch, device)
-        loss = model.loss_cl(preds, embs)
-        # loss += kwargs['ortho_weight'] * _ortho_constraint(device, model.get_label_emb())
+
+        if len(batch.y.shape) > 1:
+            y = batch.y[:, target].flatten().to(torch.long)
+        else:
+            y = batch.y[target].flatten().to(torch.long)
+
+        preds, embs = model.forward_cl(batch.x, y, batch.edge_index, batch.edge_attr, batch.batch, device)
+        try:
+            loss = model.loss_cl(preds, embs)
+        except IndexError:
+            preds = preds.unsqueeze(0)
+            embs = embs.unsqueeze(0)
+            loss = model.loss_cl(preds, embs)
+        loss += kwargs['ortho_weight'] * _ortho_constraint(device, model.get_label_emb())
 
         loss.backward()
         optimizer.step()
@@ -89,7 +100,7 @@ def eval(args, kwargs, target, model, device, loader):
 def main(**kwargs):
     # Training settings
     parser = argparse.ArgumentParser(description='PyTorch implementation of pre-training of graph neural networks')
-    parser.add_argument('--device', type=int, default=1,
+    parser.add_argument('--device', type=int, default=0,
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--batch_size', type=int, default=32,
                         help='input batch size for training (default: 32)')
@@ -112,7 +123,7 @@ def main(**kwargs):
     parser.add_argument('--JK', type=str, default="last",
                         help='how the node features across layers are combined. last, sum, max or concat')
     parser.add_argument('--gnn_type', type=str, default="gin")
-    parser.add_argument('--dataset', type=str, default = 'bbbp', help='root directory of dataset. For now, only classification.')
+    parser.add_argument('--dataset', type=str, default = 'hiv', help='root directory of dataset. For now, only classification.')
     parser.add_argument('--gnn_model_file', type=str, default = 'new_models_graphcl/graphcl.pth', help='filename to read the gnn model (if there is any)')
     parser.add_argument('--proj_head_file', type=str, default = 'new_models_graphcl/graphcl_head.pth', help='filename to read the projection head weights')
     parser.add_argument('--filename', type=str, default = '', help='output filename')
@@ -290,9 +301,10 @@ def main(**kwargs):
 
         avg_val_acc = sum(avg_val_acc) / len(avg_val_acc)
         total_val_acc.append(avg_val_acc)
-        print("val: %f, test: %f" %(avg_val_acc, ass_test_acc))
+        print(ass_test_acc)
+        #print("val: %f, test: %f" %(avg_val_acc, ass_test_acc))
     return sum(total_val_acc) / len(total_val_acc)
 
 if __name__ == "__main__":
     for _ in range(10):
-        main(num_clusters=50, ortho_weight=5e-5)
+        main(num_clusters=70, ortho_weight=9.75e-5)
