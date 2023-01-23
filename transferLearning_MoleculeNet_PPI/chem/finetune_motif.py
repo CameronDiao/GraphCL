@@ -153,7 +153,7 @@ def _ortho_constraint(device, prompt):
 def main(**kwargs):
     # Training settings
     parser = argparse.ArgumentParser(description='PyTorch implementation of pre-training of graph neural networks')
-    parser.add_argument('--device', type=int, default=1,
+    parser.add_argument('--device', type=int, default=0,
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--batch_size', type=int, default=32,
                         help='input batch size for training (default: 32)')
@@ -169,7 +169,7 @@ def main(**kwargs):
                         help='number of GNN message passing layers (default: 5).')
     parser.add_argument('--emb_dim', type=int, default=300,
                         help='embedding dimensions (default: 300)')
-    parser.add_argument('--dropout_ratio', type=float, default=0.5,
+    parser.add_argument('--dropout_ratio', type=float, default=0.0,
                         help='dropout ratio (default: 0.5)')
     parser.add_argument('--graph_pooling', type=str, default="mean",
                         help='graph level pooling (sum, mean, max, set2set, attention)')
