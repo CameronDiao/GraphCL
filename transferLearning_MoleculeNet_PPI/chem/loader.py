@@ -178,14 +178,20 @@ def mol_to_graph_data_obj_mask(mol):
         edge_attr = torch.tensor(np.array(edge_features_list),
                                  dtype=torch.long)
     else:   # mol has no bonds
+        edges_list = []
+        edge_features_list = []
         for atom in mol.GetAtoms():
             i = atom.GetIdx()
             edges_list.append((i, mol.GetNumAtoms()))
-            edge_feature_list.append([5, 0])
+            edge_features_list.append([5, 0])
             edges_list.append((mol.GetNumAtoms(), i))
             edge_features_list.append([5, 0])
-        edge_index = torch.empty((2, 0), dtype=torch.long)
-        edge_attr = torch.empty((0, num_bond_features), dtype=torch.long)
+        edge_index = torch.tensor(np.array(edges_list).T, dtype=torch.long)
+        edge_attr = torch.tensor(np.array(edge_features_list),
+                                 dtype=torch.long)
+
+        #edge_index = torch.empty((2, 0), dtype=torch.long)
+        #edge_attr = torch.empty((0, num_bond_features), dtype=torch.long)
 
     data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
 
