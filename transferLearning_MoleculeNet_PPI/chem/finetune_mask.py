@@ -134,7 +134,7 @@ def main(**kwargs):
     parser.add_argument('--JK', type=str, default="last",
                         help='how the node features across layers are combined. last, sum, max or concat')
     parser.add_argument('--gnn_type', type=str, default="gin")
-    parser.add_argument('--dataset', type=str, default = 'bbbp-mask', help='root directory of dataset. For now, only classification.')
+    parser.add_argument('--dataset', type=str, default = 'tox21-mask', help='root directory of dataset. For now, only classification.')
     parser.add_argument('--gnn_model_file', type=str, default = 'new_model_gin/masking.pth', help='filename to read the gnn model (if there is any)')
     parser.add_argument('--proj_head_file', type=str, default = 'new_model_gin/masking_atom_head.pth', help='filename to read the projection head weights')
     parser.add_argument('--filename', type=str, default = '', help='output filename')
@@ -265,9 +265,9 @@ def main(**kwargs):
 
             atom_feats = torch.vstack((atom_list_0, atom_list_1)).to(device)
             atom_feats = F.normalize(atom_feats, dim=-1)
-            offset = torch.zeros(atom_feats.shape).to(device)
-            torch.nn.init.constant_(offset, torch.finfo(torch.float).tiny)
-            atom_feats += offset
+            #offset = torch.zeros(atom_feats.shape).to(device)
+            #torch.nn.init.constant_(offset, torch.finfo(torch.float).tiny)
+            #atom_feats += offset
 
 
         if not (args.gnn_model_file == "" or args.proj_head_file == ""):
@@ -324,7 +324,7 @@ def main(**kwargs):
 
         avg_val_acc = sum(avg_val_acc) / len(avg_val_acc)
         total_val_acc.append(avg_val_acc)
-        print("val: %f, test: %f" %(avg_val_acc, ass_test_acc))
+        print(ass_test_acc)
     return sum(total_val_acc) / len(total_val_acc)
 
 if __name__ == "__main__":

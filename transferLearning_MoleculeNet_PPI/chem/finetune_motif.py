@@ -176,7 +176,7 @@ def main(**kwargs):
     parser.add_argument('--JK', type=str, default="last",
                         help='how the node features across layers are combined. last, sum, max or concat')
     parser.add_argument('--gnn_type', type=str, default="gin")
-    parser.add_argument('--dataset', type=str, default = 'sider', help='root directory of dataset. For now, only classification.')
+    parser.add_argument('--dataset', type=str, default = 'bace', help='root directory of dataset. For now, only classification.')
     parser.add_argument('--input_model_file', type=str, default = 'new_models_graphcl/graphcl.pth', help='filename to read the model (if there is any)')
     parser.add_argument('--filename', type=str, default = '', help='output filename')
     parser.add_argument('--seed', type=int, default=42, help = "Seed for splitting the dataset.")
@@ -412,4 +412,4 @@ def main(**kwargs):
 
 if __name__ == "__main__":
     for _ in range(10):
-        main(threshold=50, lr=0.005, enc_dropout=0.2, tfm_dropout=0.5, dec_dropout=0.3, enc_ln=False, tfm_ln=True, conc_ln=True, num_heads=4)
+        main(threshold=10, lr=0.001, enc_dropout=0.5, tfm_dropout=0.5, dec_dropout=0.5, enc_ln=False, tfm_ln=True, conc_ln=False, num_heads=8)

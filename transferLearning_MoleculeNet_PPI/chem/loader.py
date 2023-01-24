@@ -1287,7 +1287,7 @@ class MoleculeDataset(InMemoryDataset):
                 data_list.append(data)
                 data_smiles_list.append(smiles_list[i])
 
-        elif self.dataset == 'tox21':
+        elif self.dataset == 'tox21-mask':
             smiles_list, rdkit_mol_objs, labels = \
                 _load_tox21_dataset(self.raw_paths[0])
             for i in range(len(smiles_list)):
@@ -1593,7 +1593,7 @@ class MoleculeDataset(InMemoryDataset):
                 data_list.append(data)
                 data_smiles_list.append(smiles_list[i])
 
-        elif self.dataset == 'sider':
+        elif self.dataset == 'sider-mask':
             smiles_list, rdkit_mol_objs, labels = \
                 _load_sider_dataset(self.raw_paths[0])
             for i in range(len(smiles_list)):
