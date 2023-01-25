@@ -97,7 +97,7 @@ def eval(args, kwargs, target, model, device, loader):
 def main(**kwargs):
     # Training settings
     parser = argparse.ArgumentParser(description='PyTorch implementation of pre-training of graph neural networks')
-    parser.add_argument('--device', type=int, default=1,
+    parser.add_argument('--device', type=int, default=0,
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--batch_size', type=int, default=32,
                         help='input batch size for training (default: 32)')
@@ -131,6 +131,7 @@ def main(**kwargs):
     parser.add_argument('--num_workers', type=int, default = 4, help='number of workers for dataset loading')
     args = parser.parse_args()
 
+    print(args, kwargs)
 
     torch.manual_seed(args.runseed)
     np.random.seed(args.runseed)
@@ -304,4 +305,4 @@ def main(**kwargs):
 
 if __name__ == "__main__":
     for _ in range(10):
-        main(num_clusters=70, ortho_weight=9.75e-5)
+        main(num_clusters=60, ortho_weight=7.5e-5)
