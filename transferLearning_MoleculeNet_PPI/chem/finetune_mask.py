@@ -21,6 +21,7 @@ import pandas as pd
 
 import os
 import shutil
+import random
 
 from tensorboardX import SummaryWriter
 
@@ -52,10 +53,19 @@ def train(args, kwargs, target, model_list, loader, optimizer_list, device):
         else:
             y = batch.y[target].flatten().to(torch.long)
 
-        ## loss for node
+        prompt_indices = [random.randint(0, kwargs['num_clusters'] - 1), random.randint(kwargs['num_clusters'], 2 * kwargs['num_clusters'] - 1)]
+        prompts = atom_prompts(torch.tensor(prompt_indices, device=device))
+        # prompts = F.normalize(prompts, dim=-1)
+
         pred_node = linear_pred_atoms(node_rep[mask_indices, :])
-        pred = atom_prompts(pred_node)
+        pred = torch.mm(pred_node, prompts.T)
         loss = criterion(pred.double(), y)
+        loss += float(kwargs['ortho_weight']) * _ortho_constraint(device, atom_prompts.weight)
+
+        # ## loss for node
+        # pred_node = linear_pred_atoms(node_rep[mask_indices, :])
+        # pred = atom_prompts(pred_node)
+        # loss = criterion(pred.double(), y)
         # loss += float(kwargs['ortho_weight']) * _ortho_constraint(device, atom_prompts.weight)
 
         optimizer_model.zero_grad()
@@ -92,10 +102,24 @@ def eval(args, kwargs, target, model_list, loader, device):
             else:
                 y = batch.y[target].flatten().to(torch.long)
 
-            ## loss for nodes
+            prompts = atom_prompts.weight
+            # prompts = F.normalize(prompts, dim=1)
+            prompts_0 = torch.index_select(prompts, 0, torch.tensor([i for i in range(kwargs['num_clusters'])], device=device))
+            prompts_0 = prompts_0.mean(dim=0, keepdim=True)
+            # prompts_0 = F.normalize(prompts_0, dim=1)
+            prompts_1 = torch.index_select(prompts, 0, torch.tensor([kwargs['num_clusters'] + i for i in range(kwargs['num_clusters'])], device=device))
+            prompts_1 = prompts_1.mean(dim=0, keepdim=True)
+            # prompts_1 = F.normalize(prompts_1, dim=1)
+            prompts = torch.cat((prompts_0, prompts_1), dim=0)
+
             pred_node = linear_pred_atoms(node_rep[mask_indices, :])
-            pred = atom_prompts(pred_node)
+            pred = torch.mm(pred_node, prompts.T)
             pred = F.softmax(pred, dim=-1)
+
+            # ## loss for nodes
+            # pred_node = linear_pred_atoms(node_rep[mask_indices, :])
+            # pred = atom_prompts(pred_node)
+            # pred = F.softmax(pred, dim=-1)
 
             if device == 'cpu':
                 y_true.extend(y.numpy())
@@ -111,7 +135,7 @@ def eval(args, kwargs, target, model_list, loader, device):
 def main(**kwargs):
     # Training settings
     parser = argparse.ArgumentParser(description='PyTorch implementation of pre-training of graph neural networks')
-    parser.add_argument('--device', type=int, default=0,
+    parser.add_argument('--device', type=int, default=2,
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--batch_size', type=int, default=32,
                         help='input batch size for training (default: 32)')
@@ -134,7 +158,7 @@ def main(**kwargs):
     parser.add_argument('--JK', type=str, default="last",
                         help='how the node features across layers are combined. last, sum, max or concat')
     parser.add_argument('--gnn_type', type=str, default="gin")
-    parser.add_argument('--dataset', type=str, default = 'tox21-mask', help='root directory of dataset. For now, only classification.')
+    parser.add_argument('--dataset', type=str, default = 'bbbp-mask', help='root directory of dataset. For now, only classification.')
     parser.add_argument('--gnn_model_file', type=str, default = 'new_model_gin/masking.pth', help='filename to read the gnn model (if there is any)')
     parser.add_argument('--proj_head_file', type=str, default = 'new_model_gin/masking_atom_head.pth', help='filename to read the projection head weights')
     parser.add_argument('--filename', type=str, default = '', help='output filename')
@@ -235,7 +259,8 @@ def main(**kwargs):
         #set up model
         model = GNN(args.num_layer, args.emb_dim, JK = args.JK, drop_ratio = args.dropout_ratio, gnn_type = args.gnn_type).to(device)
         linear_pred_atoms = torch.nn.Linear(args.emb_dim, 119).to(device)
-        atom_prompts = torch.nn.Linear(119, 2, bias=False).to(device)
+        atom_prompts = torch.nn.Embedding(2 * kwargs['num_clusters'], 119).to(device)
+        # atom_prompts = torch.nn.Linear(119, 2, bias=False).to(device)
         if (not args.gnn_model_file == "" or args.proj_head_file == ""):
             model.load_state_dict(torch.load(args.gnn_model_file))
             linear_pred_atoms.load_state_dict(torch.load(args.proj_head_file))
@@ -253,10 +278,14 @@ def main(**kwargs):
                     a, c = torch.unique(atom_types.to(torch.long), sorted=True, return_counts=True)
                     a = a.tolist()
                     c = c.tolist()
-                    if data.y.item() == 0:
+                    if len(batch.y.shape) > 1:
+                        y = data.y[:, target].flatten().to(torch.long)
+                    else:
+                        y = data.y[target].flatten().to(torch.long)
+                    if y.item() == 0:
                         for atom_idx in range(len(a)):
                             atom_list_0[a[atom_idx]] += float(c[atom_idx])
-                    if data.y.item() == 1:
+                    if y.item() == 1:
                         for atom_idx in range(len(a)):
                             atom_list_1[a[atom_idx]] += float(c[atom_idx])
 
@@ -269,12 +298,16 @@ def main(**kwargs):
             #torch.nn.init.constant_(offset, torch.finfo(torch.float).tiny)
             #atom_feats += offset
 
+            cluster_indices = [0 for i in range(kwargs['num_clusters'])]
+            cluster_indices.extend([1 for i in range(kwargs['num_clusters'])])
+
+            atom_feats = torch.index_select(atom_feats, 0, torch.tensor(cluster_indices, device=device))
 
         if not (args.gnn_model_file == "" or args.proj_head_file == ""):
             model.load_state_dict(torch.load(args.gnn_model_file))
             linear_pred_atoms.load_state_dict(torch.load(args.proj_head_file))
             with torch.no_grad():
-                atom_prompts.weight = torch.nn.Parameter(atom_feats)
+                atom_prompts.weight.data = torch.nn.Parameter(atom_feats)
         else:
             raise ValueError("No pretrained file provided for GNN or projection head.")
 
@@ -329,4 +362,4 @@ def main(**kwargs):
 
 if __name__ == "__main__":
     for _ in range(10):
-        main()
+        main(num_clusters=10, ortho_weight=0.)

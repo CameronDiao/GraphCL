@@ -168,8 +168,8 @@ def mol_to_graph_data_obj_mask(mol):
             i = atom.GetIdx()
             edges_list.append((i, mol.GetNumAtoms()))
             edge_features_list.append([5, 0])
-            edges_list.append((mol.GetNumAtoms(), i))
-            edge_features_list.append([5, 0])
+            # edges_list.append((mol.GetNumAtoms(), i))
+            # edge_features_list.append([5, 0])
 
         # data.edge_index: Graph connectivity in COO format with shape [2, num_edges]
         edge_index = torch.tensor(np.array(edges_list).T, dtype=torch.long)
@@ -184,8 +184,8 @@ def mol_to_graph_data_obj_mask(mol):
             i = atom.GetIdx()
             edges_list.append((i, mol.GetNumAtoms()))
             edge_features_list.append([5, 0])
-            edges_list.append((mol.GetNumAtoms(), i))
-            edge_features_list.append([5, 0])
+            # edges_list.append((mol.GetNumAtoms(), i))
+            # edge_features_list.append([5, 0])
         edge_index = torch.tensor(np.array(edges_list).T, dtype=torch.long)
         edge_attr = torch.tensor(np.array(edge_features_list),
                                  dtype=torch.long)
