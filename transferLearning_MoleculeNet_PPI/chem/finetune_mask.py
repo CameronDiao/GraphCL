@@ -55,7 +55,7 @@ def train(args, kwargs, target, model_list, loader, optimizer_list, device):
 
         prompt_indices = [random.randint(0, kwargs['num_clusters'] - 1), random.randint(kwargs['num_clusters'], 2 * kwargs['num_clusters'] - 1)]
         prompts = atom_prompts(torch.tensor(prompt_indices, device=device))
-        # prompts = F.normalize(prompts, dim=-1)
+        prompts = F.normalize(prompts, dim=-1)
 
         pred_node = linear_pred_atoms(node_rep[mask_indices, :])
         pred = torch.mm(pred_node, prompts.T)
@@ -103,13 +103,13 @@ def eval(args, kwargs, target, model_list, loader, device):
                 y = batch.y[target].flatten().to(torch.long)
 
             prompts = atom_prompts.weight
-            # prompts = F.normalize(prompts, dim=1)
+            prompts = F.normalize(prompts, dim=1)
             prompts_0 = torch.index_select(prompts, 0, torch.tensor([i for i in range(kwargs['num_clusters'])], device=device))
             prompts_0 = prompts_0.mean(dim=0, keepdim=True)
-            # prompts_0 = F.normalize(prompts_0, dim=1)
+            prompts_0 = F.normalize(prompts_0, dim=1)
             prompts_1 = torch.index_select(prompts, 0, torch.tensor([kwargs['num_clusters'] + i for i in range(kwargs['num_clusters'])], device=device))
             prompts_1 = prompts_1.mean(dim=0, keepdim=True)
-            # prompts_1 = F.normalize(prompts_1, dim=1)
+            prompts_1 = F.normalize(prompts_1, dim=1)
             prompts = torch.cat((prompts_0, prompts_1), dim=0)
 
             pred_node = linear_pred_atoms(node_rep[mask_indices, :])
@@ -135,7 +135,7 @@ def eval(args, kwargs, target, model_list, loader, device):
 def main(**kwargs):
     # Training settings
     parser = argparse.ArgumentParser(description='PyTorch implementation of pre-training of graph neural networks')
-    parser.add_argument('--device', type=int, default=2,
+    parser.add_argument('--device', type=int, default=0,
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--batch_size', type=int, default=32,
                         help='input batch size for training (default: 32)')
