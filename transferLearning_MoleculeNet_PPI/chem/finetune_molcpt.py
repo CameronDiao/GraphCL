@@ -59,12 +59,17 @@ def _extract_cliques(device, batch, mol_to_clique, clique_list):
 
     return mol_idx, clique_idx
 
-def _extract_clusters(kwargs, device, batch, mol_to_cluster):
+def _extract_clusters(kwargs, device, target, batch, mol_to_cluster):
     cluster_idx = []
     for d in batch.to_data_list():
-        if d.y.item() == 0:
+        if len(d.y.shape) > 1:
+            y = d.y[:, target].flatten().to(torch.long)
+        else: 
+            y = d.y[target].flatten().to(torch.long)
+
+        if y.item() == 0:
             idx = mol_to_cluster[d.mol_index.item()]
-        elif d.y.item() == 1:
+        elif y.item() == 1:
             idx = kwargs['num_clusters'] + mol_to_cluster[d.mol_index.item()]
         cluster_idx.append(idx)
 
@@ -80,7 +85,7 @@ def train(args, kwargs, target, model, device, loader, optimizer, clique_list, m
         batch = batch.to(device)
 
         mol_idx, clique_idx = _extract_cliques(device, batch, mol_to_clique, clique_list)
-        cluster_idx = _extract_clusters(kwargs, device, batch, mol_to_cluster) 
+        cluster_idx = _extract_clusters(kwargs, device, target, batch, mol_to_cluster) 
 
         optimizer.zero_grad()
 
@@ -110,7 +115,7 @@ def eval(args, kwargs, target, model, device, loader, clique_list, mol_to_clique
         batch = batch.to(device)
 
         mol_idx, clique_idx = _extract_cliques(device, batch, mol_to_clique, clique_list)
-        cluster_idx = _extract_clusters(kwargs, device, batch, mol_to_cluster)
+        cluster_idx = _extract_clusters(kwargs, device, target, batch, mol_to_cluster)
 
         if len(batch.y.shape) > 1:
             y = batch.y[:, target].flatten()
@@ -171,7 +176,7 @@ def main(**kwargs):
     parser.add_argument('--JK', type=str, default="last",
                         help='how the node features across layers are combined. last, sum, max or concat')
     parser.add_argument('--gnn_type', type=str, default="gin")
-    parser.add_argument('--dataset', type=str, default = 'bbbp', help='root directory of dataset. For now, only classification.')
+    parser.add_argument('--dataset', type=str, default = 'clintox', help='root directory of dataset. For now, only classification.')
     parser.add_argument('--gnn_model_file', type=str, default = 'new_models_graphcl/graphcl.pth', help='filename to read the gnn model (if there is any)')
     parser.add_argument('--proj_head_file', type=str, default = 'new_models_graphcl/graphcl_head.pth', help='filename to read the projection head weights')    
     parser.add_argument('--filename', type=str, default = '', help='output filename')
@@ -181,6 +186,8 @@ def main(**kwargs):
     parser.add_argument('--eval_train', type=int, default = 0, help='evaluating training or not')
     parser.add_argument('--num_workers', type=int, default = 4, help='number of workers for dataset loading')
     args = parser.parse_args()
+
+    print(args, kwargs)
 
     torch.manual_seed(args.runseed)
     np.random.seed(args.runseed)
@@ -248,10 +255,14 @@ def main(**kwargs):
         cluster_idx_1 = 0
         for batch in full_data_loader:
             for d in batch.to_data_list():
-                if d.y.item() == 0:
+                if len(d.y.shape) > 1:
+                    y = d.y[:, target].flatten().to(torch.long)
+                else:
+                    y = d.y[target].flatten().to(torch.long)
+                if y.item() == 0:
                     mol_to_cluster[d.mol_index.item()] = cluster_idx_0
                     cluster_idx_0 = (cluster_idx_0 + 1) % kwargs['num_clusters']
-                elif d.y.item() == 1:
+                elif y.item() == 1:
                     mol_to_cluster[d.mol_index.item()] = cluster_idx_1
                     cluster_idx_1 = (cluster_idx_1 + 1) % kwargs['num_clusters']
         return mol_to_cluster
@@ -371,10 +382,15 @@ def main(**kwargs):
                 labels.append(batch.y)
 
                 for i, d in enumerate(batch.to_data_list()):
-                    if d.y.item() == 0:
+                    if len(d.y.shape) > 1:
+                        y = d.y[:, target].flatten().to(torch.long)
+                    else:
+                        y = d.y[target].flatten().to(torch.long)
+
+                    if y.item() == 0:
                         for clique in mol_to_clique[d.mol_index.item()].keys():
                             clique_idx_0.append(clique_list.index(clique))
-                    elif d.y.item() == 1:
+                    elif y.item() == 1:
                         for clique in mol_to_clique[d.mol_index.item()].keys():
                             clique_idx_1.append(clique_list.index(clique))
 
@@ -449,4 +465,4 @@ def main(**kwargs):
 
 if __name__ == "__main__":
     for _ in range(10):
-        main(num_clusters=70, ortho_weight=0., threshold=40, lr=0.001, enc_dropout=0.1, tfm_dropout=0.1, dec_dropout=0.1, enc_ln=False, tfm_ln=True, conc_ln=False, num_heads=4)
+        main(num_clusters=60, ortho_weight=7.5e-5, threshold=60, lr=0.001, enc_dropout=0.3, tfm_dropout=0.3, dec_dropout=0.3, enc_ln=False, tfm_ln=True, conc_ln=False, num_heads=4)
