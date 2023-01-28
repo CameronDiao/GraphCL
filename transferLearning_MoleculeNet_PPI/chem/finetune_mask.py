@@ -46,7 +46,6 @@ def train(args, kwargs, target, model_list, loader, optimizer_list, device):
     for step, batch in enumerate(loader):
         batch = batch.to(device)
         node_rep = model(batch.x, batch.edge_index, batch.edge_attr)
-        mask_indices = batch.ptr[1:] - 1
 
         if len(batch.y.shape) > 1:
             y = batch.y[:, target].flatten().to(torch.long)
@@ -55,9 +54,9 @@ def train(args, kwargs, target, model_list, loader, optimizer_list, device):
 
         prompt_indices = [random.randint(0, kwargs['num_clusters'] - 1), random.randint(kwargs['num_clusters'], 2 * kwargs['num_clusters'] - 1)]
         prompts = atom_prompts(torch.tensor(prompt_indices, device=device))
-        # prompts = F.normalize(prompts, dim=-1)
+        prompts = F.normalize(prompts, dim=-1)
 
-        pred_node = linear_pred_atoms(node_rep[mask_indices, :])
+        pred_node = linear_pred_atoms(global_mean_pool(node_rep, batch.batch))
         pred = torch.mm(pred_node, prompts.T)
         loss = criterion(pred.double(), y)
         loss += float(kwargs['ortho_weight']) * _ortho_constraint(device, atom_prompts.weight)
@@ -95,7 +94,6 @@ def eval(args, kwargs, target, model_list, loader, device):
 
         with torch.no_grad():
             node_rep = model(batch.x, batch.edge_index, batch.edge_attr)
-            mask_indices = batch.ptr[1:] - 1
 
             if len(batch.y.shape) > 1:
                 y = batch.y[:, target].flatten().to(torch.long)
@@ -103,16 +101,16 @@ def eval(args, kwargs, target, model_list, loader, device):
                 y = batch.y[target].flatten().to(torch.long)
 
             prompts = atom_prompts.weight
-            # prompts = F.normalize(prompts, dim=1)
+            prompts = F.normalize(prompts, dim=1)
             prompts_0 = torch.index_select(prompts, 0, torch.tensor([i for i in range(kwargs['num_clusters'])], device=device))
             prompts_0 = prompts_0.mean(dim=0, keepdim=True)
-            # prompts_0 = F.normalize(prompts_0, dim=1)
+            prompts_0 = F.normalize(prompts_0, dim=1)
             prompts_1 = torch.index_select(prompts, 0, torch.tensor([kwargs['num_clusters'] + i for i in range(kwargs['num_clusters'])], device=device))
             prompts_1 = prompts_1.mean(dim=0, keepdim=True)
-            # prompts_1 = F.normalize(prompts_1, dim=1)
+            prompts_1 = F.normalize(prompts_1, dim=1)
             prompts = torch.cat((prompts_0, prompts_1), dim=0)
 
-            pred_node = linear_pred_atoms(node_rep[mask_indices, :])
+            pred_node = linear_pred_atoms(global_mean_pool(node_rep, batch.batch))
             pred = torch.mm(pred_node, prompts.T)
             pred = F.softmax(pred, dim=-1)
 
@@ -135,7 +133,7 @@ def eval(args, kwargs, target, model_list, loader, device):
 def main(**kwargs):
     # Training settings
     parser = argparse.ArgumentParser(description='PyTorch implementation of pre-training of graph neural networks')
-    parser.add_argument('--device', type=int, default=2,
+    parser.add_argument('--device', type=int, default=0,
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--batch_size', type=int, default=32,
                         help='input batch size for training (default: 32)')
@@ -158,7 +156,7 @@ def main(**kwargs):
     parser.add_argument('--JK', type=str, default="last",
                         help='how the node features across layers are combined. last, sum, max or concat')
     parser.add_argument('--gnn_type', type=str, default="gin")
-    parser.add_argument('--dataset', type=str, default = 'bbbp-mask', help='root directory of dataset. For now, only classification.')
+    parser.add_argument('--dataset', type=str, default = 'tox21', help='root directory of dataset. For now, only classification.')
     parser.add_argument('--gnn_model_file', type=str, default = 'new_model_gin/masking.pth', help='filename to read the gnn model (if there is any)')
     parser.add_argument('--proj_head_file', type=str, default = 'new_model_gin/masking_atom_head.pth', help='filename to read the projection head weights')
     parser.add_argument('--filename', type=str, default = '', help='output filename')
@@ -177,31 +175,31 @@ def main(**kwargs):
         torch.cuda.manual_seed_all(args.runseed)
 
     #Bunch of classification tasks
-    if args.dataset == "tox21-mask":
+    if args.dataset == "tox21":
         num_tasks = 12
         target_list = [
             "NR-AR", "NR-AR-LBD", "NR-AhR", "NR-Aromatase", "NR-ER", "NR-ER-LBD", 
             "NR-PPAR-gamma", "SR-ARE", "SR-ATAD5", "SR-HSE", "SR-MMP", "SR-p53"
         ]
-    elif args.dataset == "hiv-mask":
+    elif args.dataset == "hiv":
         num_tasks = 1
         target_list = ["HIV_active"]
-    elif args.dataset == "muv-mask":
+    elif args.dataset == "muv":
         num_tasks = 17
         target_list = [
             'MUV-692', 'MUV-689', 'MUV-846', 'MUV-859', 'MUV-644', 'MUV-548', 'MUV-852',
             'MUV-600', 'MUV-810', 'MUV-712', 'MUV-737', 'MUV-858', 'MUV-713', 'MUV-733',
             'MUV-652', 'MUV-466', 'MUV-832'
         ]
-    elif args.dataset == "bace-mask":
+    elif args.dataset == "bace":
         num_tasks = 1
         target_list = ["Class"]
-    elif args.dataset == "bbbp-mask":
+    elif args.dataset == "bbbp":
         num_tasks = 1
         target_list = ["p_np"]
     elif args.dataset == "toxcast":
         num_tasks = 617
-    elif args.dataset == "sider-mask":
+    elif args.dataset == "sider":
         num_tasks = 27
         target_list = [
             "Hepatobiliary disorders", "Metabolism and nutrition disorders", "Product issues", 
@@ -218,7 +216,7 @@ def main(**kwargs):
             "Ear and labyrinth disorders", "Cardiac disorders", 
             "Nervous system disorders", "Injury, poisoning and procedural complications"
         ]
-    elif args.dataset == "clintox-mask":
+    elif args.dataset == "clintox":
         num_tasks = 2
         target_list = ['CT_TOX', 'FDA_APPROVED']
     else:
@@ -362,4 +360,4 @@ def main(**kwargs):
 
 if __name__ == "__main__":
     for _ in range(10):
-        main(num_clusters=10, ortho_weight=0.)
+        main(num_clusters=2, ortho_weight=0.)
