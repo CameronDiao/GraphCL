@@ -233,6 +233,8 @@ def main(**kwargs):
     else:
         raise ValueError("Invalid dataset name.")
 
+    print(args, kwargs)
+
     #set up dataset
     dataset = MoleculeDataset("dataset/" + args.dataset, dataset=args.dataset)
 
@@ -350,7 +352,7 @@ def main(**kwargs):
             for batch in train_loader:
                 for data in batch.to_data_list():
                     atom_types = batch.x.clone()
-                    atom_types = atom_types[:, 0][atom_types[:, 0] != 119]
+                    atom_types = atom_types[:, 0][atom_types[:, 0] != 120]
                     a, c = torch.unique(atom_types.to(torch.long), sorted=True, return_counts=True)
                     a = a.tolist()
                     c = c.tolist()
