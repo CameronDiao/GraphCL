@@ -153,7 +153,7 @@ def _ortho_constraint(device, prompt):
 def main(**kwargs):
     # Training settings
     parser = argparse.ArgumentParser(description='PyTorch implementation of pre-training of graph neural networks')
-    parser.add_argument('--device', type=int, default=0,
+    parser.add_argument('--device', type=int, default=2,
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--batch_size', type=int, default=32,
                         help='input batch size for training (default: 32)')
@@ -169,15 +169,15 @@ def main(**kwargs):
                         help='number of GNN message passing layers (default: 5).')
     parser.add_argument('--emb_dim', type=int, default=300,
                         help='embedding dimensions (default: 300)')
-    parser.add_argument('--dropout_ratio', type=float, default=0.0,
+    parser.add_argument('--dropout_ratio', type=float, default=0.5,
                         help='dropout ratio (default: 0.5)')
     parser.add_argument('--graph_pooling', type=str, default="mean",
                         help='graph level pooling (sum, mean, max, set2set, attention)')
     parser.add_argument('--JK', type=str, default="last",
                         help='how the node features across layers are combined. last, sum, max or concat')
     parser.add_argument('--gnn_type', type=str, default="gin")
-    parser.add_argument('--dataset', type=str, default = 'bace', help='root directory of dataset. For now, only classification.')
-    parser.add_argument('--input_model_file', type=str, default = 'new_models_graphcl/graphcl.pth', help='filename to read the model (if there is any)')
+    parser.add_argument('--dataset', type=str, default = 'sider', help='root directory of dataset. For now, only classification.')
+    parser.add_argument('--input_model_file', type=str, default = 'new_model_gin/masking.pth', help='filename to read the model (if there is any)')
     parser.add_argument('--filename', type=str, default = '', help='output filename')
     parser.add_argument('--seed', type=int, default=42, help = "Seed for splitting the dataset.")
     parser.add_argument('--runseed', type=int, default=0, help = "Seed for minibatch selection, random initialization.")
@@ -185,6 +185,8 @@ def main(**kwargs):
     parser.add_argument('--eval_train', type=int, default = 0, help='evaluating training or not')
     parser.add_argument('--num_workers', type=int, default = 4, help='number of workers for dataset loading')
     args = parser.parse_args()
+
+    print(args, kwargs)
 
     torch.manual_seed(args.runseed)
     np.random.seed(args.runseed)
@@ -351,7 +353,8 @@ def main(**kwargs):
 
         model = GNN_M_graphpred(num_motifs, args.num_layer, args.emb_dim, JK = args.JK,
                 drop_ratio = args.dropout_ratio, enc_dropout=kwargs['enc_dropout'], tfm_dropout=kwargs['tfm_dropout'], dec_dropout=kwargs['dec_dropout'],
-                enc_ln=kwargs['enc_ln'], tfm_ln=kwargs['tfm_ln'], conc_ln=kwargs['conc_ln'], graph_pooling = args.graph_pooling, gnn_type = args.gnn_type)
+                enc_ln=kwargs['enc_ln'], tfm_ln=kwargs['tfm_ln'], conc_ln=kwargs['conc_ln'], num_heads=kwargs['num_heads'], 
+                graph_pooling = args.graph_pooling, gnn_type = args.gnn_type)
         if not args.input_model_file == "":
             model.from_pretrained(args.input_model_file)
             model.init_clique_emb(motif_feats)
@@ -412,4 +415,4 @@ def main(**kwargs):
 
 if __name__ == "__main__":
     for _ in range(10):
-        main(threshold=10, lr=0.001, enc_dropout=0.5, tfm_dropout=0.5, dec_dropout=0.5, enc_ln=False, tfm_ln=True, conc_ln=False, num_heads=8)
+        main(threshold=40, lr=0.001, enc_dropout=0.2, tfm_dropout=0.2, dec_dropout=0.2, enc_ln=False, tfm_ln=True, conc_ln=False, num_heads=10)

@@ -176,7 +176,7 @@ def main(**kwargs):
     parser.add_argument('--JK', type=str, default="last",
                         help='how the node features across layers are combined. last, sum, max or concat')
     parser.add_argument('--gnn_type', type=str, default="gin")
-    parser.add_argument('--dataset', type=str, default = 'clintox', help='root directory of dataset. For now, only classification.')
+    parser.add_argument('--dataset', type=str, default = 'sider', help='root directory of dataset. For now, only classification.')
     parser.add_argument('--gnn_model_file', type=str, default = 'new_models_graphcl/graphcl.pth', help='filename to read the gnn model (if there is any)')
     parser.add_argument('--proj_head_file', type=str, default = 'new_models_graphcl/graphcl_head.pth', help='filename to read the projection head weights')    
     parser.add_argument('--filename', type=str, default = '', help='output filename')
@@ -419,7 +419,7 @@ def main(**kwargs):
 
         model = GNN_mp_link(num_motifs, kwargs['num_clusters'], args.num_layer, args.emb_dim, JK = args.JK,
                 drop_ratio = args.dropout_ratio, enc_dropout=kwargs['enc_dropout'], tfm_dropout=kwargs['tfm_dropout'], dec_dropout=kwargs['dec_dropout'],
-                enc_ln=kwargs['enc_ln'], tfm_ln=kwargs['tfm_ln'], conc_ln=kwargs['conc_ln'], graph_pooling = args.graph_pooling, gnn_type = args.gnn_type)
+                enc_ln=kwargs['enc_ln'], tfm_ln=kwargs['tfm_ln'], conc_ln=kwargs['conc_ln'], num_heads=kwargs['num_heads'], graph_pooling = args.graph_pooling, gnn_type = args.gnn_type)
         if not (args.gnn_model_file == "" or args.proj_head_file == ""):
             model.from_pretrained(args.gnn_model_file, args.proj_head_file)
             model.init_clique_emb(motif_feats)
@@ -465,4 +465,4 @@ def main(**kwargs):
 
 if __name__ == "__main__":
     for _ in range(10):
-        main(num_clusters=60, ortho_weight=7.5e-5, threshold=60, lr=0.001, enc_dropout=0.3, tfm_dropout=0.3, dec_dropout=0.3, enc_ln=False, tfm_ln=True, conc_ln=False, num_heads=4)
+        main(num_clusters=10, ortho_weight=3.75e-5, threshold=10, lr=0.001, enc_dropout=0.2, tfm_dropout=0.2, dec_dropout=0.2, enc_ln=False, tfm_ln=True, conc_ln=False, num_heads=8)
