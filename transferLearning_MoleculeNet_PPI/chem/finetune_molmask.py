@@ -168,7 +168,7 @@ def main(**kwargs):
     parser.add_argument('--JK', type=str, default="last",
                         help='how the node features across layers are combined. last, sum, max or concat')
     parser.add_argument('--gnn_type', type=str, default="gin")
-    parser.add_argument('--dataset', type=str, default = 'bbbp', help='root directory of dataset. For now, only classification.')
+    parser.add_argument('--dataset', type=str, default = 'bace', help='root directory of dataset. For now, only classification.')
     parser.add_argument('--gnn_model_file', type=str, default = 'new_model_gin/masking.pth', help='filename to read the gnn model (if there is any)')
     parser.add_argument('--proj_head_file', type=str, default = 'new_model_gin/masking_atom_head.pth', help='filename to read the projection head weights')
     parser.add_argument('--filename', type=str, default = '', help='output filename')
@@ -316,11 +316,13 @@ def main(**kwargs):
         clique_loader = clique_dataset.get_data_loaders()
 
         #set up model
-        model = GNN(args.num_layer, args.emb_dim, JK = args.JK, drop_ratio = args.dropout_ratio, gnn_type = args.gnn_type).to(device)
+        gnn = GNN(args.num_layer, args.emb_dim, JK = args.JK, drop_ratio = args.dropout_ratio, gnn_type = args.gnn_type).to(device)
+        model = GNN_mask(gnn)
         atom_prompts = torch.nn.Embedding(2 * kwargs['num_clusters'], 119).to(device)
         # atom_prompts = torch.nn.Linear(119, 2, bias=False).to(device)
         if not (args.gnn_model_file == "" or args.proj_head_file == ""):
-            model.load_state_dict(torch.load(args.gnn_model_file))
+            model.from_pretrained(args.gnn_model_file, args.proj_head_file)
+            #model.load_state_dict(torch.load(args.gnn_model_file))
         else:
             raise ValueError("No pretrained file provided for GNN or projection head.")
 
@@ -330,8 +332,9 @@ def main(**kwargs):
             motif_feats = []
             for c in clique_loader:
                 c = c.to(device)
-                embs = model(c)
-                emb = global_mean_pool(embs, c.batch)
+                emb = model.forward_cl(c.x, c.edge_index, c.edge_attr, c.batch)
+                #embs = model(c)
+                #emb = global_mean_pool(embs, c.batch)
                 motif_feats.append(emb)
 
             motif_feats = torch.cat(motif_feats)
@@ -367,9 +370,9 @@ def main(**kwargs):
 
             atom_feats = torch.vstack((atom_list_0, atom_list_1)).to(device)
             atom_feats = F.normalize(atom_feats, dim=-1)
-            #offset = torch.zeros(atom_feats.shape).to(device)
-            #torch.nn.init.constant_(offset, torch.finfo(torch.float).tiny)
-            #atom_feats += offset
+            offset = torch.zeros(atom_feats.shape).to(device)
+            torch.nn.init.constant_(offset, 1e-8)
+            atom_feats += offset
 
             cluster_indices = [0 for i in range(kwargs['num_clusters'])]
             cluster_indices.extend([1 for i in range(kwargs['num_clusters'])])
@@ -427,4 +430,4 @@ def main(**kwargs):
 
 if __name__ == "__main__":
     for _ in range(10):
-        main(num_clusters=2, ortho_weight=0., threshold=40, lr=0.001, enc_dropout=0.2, tfm_dropout=0.2, dec_dropout=0.2, enc_ln=False, tfm_ln=True, conc_ln=False, num_heads=4)
+        main(num_clusters=2, ortho_weight=0., threshold=10, lr=0.001, enc_dropout=0.4, tfm_dropout=0.4, dec_dropout=0.4, enc_ln=False, tfm_ln=True, conc_ln=False, num_heads=7)

@@ -442,18 +442,18 @@ class GNN_mp_mask(torch.nn.Module):
         self.pool = global_mean_pool
         self.projection_head = torch.nn.Linear(300, 119)
 
-        self.motif_pool = MAB(300, 300, 300, num_heads=num_heads, dropout=tfm_dropout, layer_norm=tfm_ln)
+        self.motif_pool = MAB(119, 119, 119, num_heads=num_heads, dropout=tfm_dropout, layer_norm=tfm_ln)
         self.motif_pool.reset_parameters()
 
         if self.enc_ln:
-            self.motif_norm1 = torch.nn.LayerNorm(300)
+            self.motif_norm1 = torch.nn.LayerNorm(119)
             _weight_reset(self.motif_norm1)
         self.motif_enc = torch.nn.Sequential(
-                torch.nn.Linear(300, 300),
+                torch.nn.Linear(119, 119),
         )
         _weight_reset(self.motif_enc)
         self.motif_dec = torch.nn.Sequential(
-                torch.nn.Linear(300, 300),
+                torch.nn.Linear(119, 119),
         )
         _weight_reset(self.motif_dec)
 
@@ -461,7 +461,7 @@ class GNN_mp_mask(torch.nn.Module):
             self.conc_norm1 = torch.nn.LayerNorm(2 * cast_dims)
             _weight_reset(self.conc_norm1)
 
-        self.clique_embedding = torch.nn.Embedding(num_motifs, 300)
+        self.clique_embedding = torch.nn.Embedding(num_motifs, 119)
 
 
     def init_clique_emb(self, init):
@@ -475,6 +475,7 @@ class GNN_mp_mask(torch.nn.Module):
     def forward_cl(self, x, edge_index, edge_attr, batch, motif_idx, clique_idx):
         x = self.gnn(x, edge_index, edge_attr)
         x = self.pool(x, batch)
+        x = self.projection_head(x)
 
         motif_representation = self.clique_embedding(clique_idx)
         motif_representation, mask = to_dense_batch(motif_representation, motif_idx)
@@ -489,7 +490,6 @@ class GNN_mp_mask(torch.nn.Module):
         motif_representation = motif_representation.squeeze(1)
 
         rep = x + motif_representation
-        rep = self.projection_head(rep)
 
         return rep
 
