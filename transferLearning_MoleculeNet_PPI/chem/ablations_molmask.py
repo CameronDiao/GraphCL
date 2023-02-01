@@ -340,7 +340,6 @@ def main(**kwargs):
                 motif_feats.append(emb)
 
             motif_feats = torch.cat(motif_feats)
-            nn.init.xavier_uniform_(motif_feats)
 
             clique_list.append("EMP")
 
@@ -396,6 +395,9 @@ def main(**kwargs):
         model_list = [model, atom_prompts]
 
         model.to(device)
+
+        for p in model.gnn.parameters():
+            p.requires_grad = False
 
         optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.decay)
 
