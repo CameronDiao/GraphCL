@@ -272,11 +272,13 @@ def main(**kwargs):
         clique_set = set()
         for i, m in enumerate(smiles_data):
             mol_to_clique[i] = {}
-            mol = vocab.get_mol(m)
-            cliques, edges = vocab.tree_decomp(mol)
+            mol = get_mol(m)
+            cliques, edges = brics_decomp(mol)
+            if len(edges) <= 1:
+                cliques, edges = tree_decomp(mol)
             for c in cliques:
-                cmol = vocab.get_clique_mol(mol, c)
-                cs = vocab.get_smiles(cmol)
+                cmol = get_clique_mol(mol, c)
+                cs = get_smiles(cmol)
                 clique_set.add(cs)
                 if cs not in mol_to_clique[i]:
                     mol_to_clique[i][cs] = 1
@@ -362,6 +364,7 @@ def main(**kwargs):
                 motif_feats.append(emb)
 
             motif_feats = torch.cat(motif_feats)
+            nn.init.xavier_uniform_(motif_feats)
 
             clique_list.append("EMP")
 
