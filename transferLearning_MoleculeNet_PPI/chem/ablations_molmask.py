@@ -168,7 +168,7 @@ def main(**kwargs):
     parser.add_argument('--JK', type=str, default="last",
                         help='how the node features across layers are combined. last, sum, max or concat')
     parser.add_argument('--gnn_type', type=str, default="gin")
-    parser.add_argument('--dataset', type=str, default = 'clintox', help='root directory of dataset. For now, only classification.')
+    parser.add_argument('--dataset', type=str, default = 'bace', help='root directory of dataset. For now, only classification.')
     parser.add_argument('--gnn_model_file', type=str, default = 'new_model_gin/masking.pth', help='filename to read the gnn model (if there is any)')
     parser.add_argument('--proj_head_file', type=str, default = 'new_model_gin/masking_atom_head.pth', help='filename to read the projection head weights')
     parser.add_argument('--filename', type=str, default = '', help='output filename')
@@ -435,4 +435,4 @@ def main(**kwargs):
 
 if __name__ == "__main__":
     for _ in range(10):
-        main(num_clusters=10, ortho_weight=8e-5, threshold=0, lr=0.001, enc_dropout=0.3, tfm_dropout=0.3, dec_dropout=0.3, enc_ln=False, tfm_ln=True, conc_ln=False, num_heads=1)
+        main(num_clusters=2, ortho_weight=0., threshold=10, lr=0.001, enc_dropout=0.4, tfm_dropout=0.4, dec_dropout=0.4, enc_ln=False, tfm_ln=True, conc_ln=False, num_heads=1)
